@@ -20,7 +20,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RiskGauge } from '../components/RiskGauge';
 import { Separator } from '../components/ui/separator';
 import { Badge } from '../components/ui/badge';
-import type { PredictionResult } from '../types/api';
+import { strokeApi } from '../services/api';
+import type { PredictionResult, PredictionRequest, PredictionResponse } from '../types/api';
 
 export function PredictSingle() {
   const [loading, setLoading] = useState(false);
@@ -43,22 +44,118 @@ export function PredictSingle() {
     const glucose = parseFloat(formData.avg_glucose_level);
     const bmi = parseFloat(formData.bmi);
 
-    if (age < 0 || age > 120) {
+    if (isNaN(age) || age < 0 || age > 120) {
       toast.error('La edad debe estar entre 0 y 120 años');
       return false;
     }
 
-    if (glucose < 0) {
+    if (isNaN(glucose) || glucose < 0) {
       toast.error('El nivel de glucosa no puede ser negativo');
       return false;
     }
 
-    if (bmi < 0 || bmi > 100) {
+    if (isNaN(bmi) || bmi < 0 || bmi > 100) {
       toast.error('El IMC debe estar entre 0 y 100 kg/m²');
       return false;
     }
 
+    // Validar que todos los campos estén completos
+    if (
+      !formData.age ||
+      !formData.gender ||
+      !formData.hypertension ||
+      !formData.heart_disease ||
+      !formData.ever_married ||
+      !formData.work_type ||
+      !formData.residence_type ||
+      !formData.avg_glucose_level ||
+      !formData.bmi ||
+      !formData.smoking_status
+    ) {
+      toast.error('Por favor complete todos los campos');
+      return false;
+    }
+
     return true;
+  };
+
+  // Transformar formData a PredictionRequest
+  const transformFormDataToRequest = (): PredictionRequest => {
+    return {
+      age: parseFloat(formData.age),
+      hypertension: parseInt(formData.hypertension) as 0 | 1,
+      heart_disease: parseInt(formData.heart_disease) as 0 | 1,
+      avg_glucose_level: parseFloat(formData.avg_glucose_level),
+      bmi: parseFloat(formData.bmi),
+      gender: formData.gender as 'Male' | 'Female' | 'Other',
+      ever_married: formData.ever_married as 'Yes' | 'No',
+      work_type: formData.work_type,
+      Residence_type: formData.residence_type as 'Urban' | 'Rural',
+      smoking_status: formData.smoking_status,
+    };
+  };
+
+  // Transformar PredictionResponse a PredictionResult (formato UI)
+  const transformApiResponseToResult = (apiResponse: PredictionResponse): PredictionResult => {
+    const risk = apiResponse.probability * 100;
+    const riskLevel: 'high' | 'medium' | 'low' = risk > 70 ? 'high' : risk > 30 ? 'medium' : 'low';
+    const age = parseFloat(formData.age);
+    const glucose = parseFloat(formData.avg_glucose_level);
+    const bmi = parseFloat(formData.bmi);
+
+    // Generar recomendaciones basadas en los datos
+    const recommendations: string[] = [];
+    if (formData.hypertension === '1') {
+      recommendations.push('Control regular de presión arterial cada 2 semanas');
+    }
+    if (glucose > 140) {
+      recommendations.push('Monitorización de niveles de glucosa en sangre');
+    }
+    if (formData.heart_disease === '1') {
+      recommendations.push('Consulta con especialista cardiovascular recomendada');
+    }
+    if (bmi > 25) {
+      recommendations.push('Evaluación de hábitos alimenticios y actividad física');
+    }
+    if (riskLevel === 'high') {
+      recommendations.push('Seguimiento médico inmediato recomendado');
+    }
+    if (recommendations.length === 0) {
+      recommendations.push('Mantener controles médicos regulares');
+      recommendations.push('Seguir un estilo de vida saludable');
+    }
+
+    // Generar factores de riesgo
+    const riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[] = [
+      {
+        factor: 'Edad',
+        impact: (age > 60 ? 'high' : age > 45 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+      },
+      {
+        factor: 'Hipertensión',
+        impact: (formData.hypertension === '1' ? 'high' : 'low') as 'high' | 'low',
+      },
+      {
+        factor: 'Enfermedad Cardíaca',
+        impact: (formData.heart_disease === '1' ? 'high' : 'low') as 'high' | 'low',
+      },
+      {
+        factor: 'Nivel de Glucosa',
+        impact: (glucose > 140 ? 'high' : glucose > 100 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+      },
+      {
+        factor: 'IMC',
+        impact: (bmi > 30 ? 'high' : bmi > 25 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+      },
+    ];
+
+    return {
+      ...apiResponse,
+      risk,
+      riskLevel,
+      recommendations,
+      riskFactors,
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,49 +166,38 @@ export function PredictSingle() {
     }
 
     setLoading(true);
+    setResult(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Mock prediction - convert to match API response format
-      const probability = Math.random();
-      const glucose = parseFloat(formData.avg_glucose_level) || 0;
-      const bmi = parseFloat(formData.bmi) || 0;
-      
-      const mockApiResponse = {
-        prediction: (probability > 0.5 ? 1 : 0) as 0 | 1,
-        probability: probability,
-        model_used: 'random_forest_model.pkl',
-        confidence: (probability > 0.7 || probability < 0.3 ? 'High' : probability > 0.4 && probability < 0.6 ? 'Low' : 'Medium') as 'Low' | 'Medium' | 'High',
-      };
+    try {
+      // Transformar datos del formulario al formato de la API
+      const requestData = transformFormDataToRequest();
 
-      // Convert to UI format
-      const risk = probability * 100;
-      const riskLevel: 'high' | 'medium' | 'low' = risk > 70 ? 'high' : risk > 30 ? 'medium' : 'low';
+      // Llamar a la API real
+      const apiResponse = await strokeApi.predict(requestData);
 
-      const mockResult: PredictionResult = {
-        ...mockApiResponse,
-        risk,
-        riskLevel,
-        recommendations: [
-          'Control regular de presión arterial cada 2 semanas',
-          'Monitorización de niveles de glucosa en sangre',
-          'Consulta con especialista cardiovascular recomendada',
-          'Evaluación de hábitos alimenticios y actividad física',
-        ],
-        riskFactors: [
-          { factor: 'Edad', impact: parseInt(formData.age) > 60 ? 'high' : 'medium' },
-          { factor: 'Hipertensión', impact: formData.hypertension === '1' ? 'high' : 'low' },
-          { factor: 'Nivel de Glucosa', impact: glucose > 140 ? 'high' : 'medium' },
-          { factor: 'IMC', impact: bmi > 30 ? 'high' : bmi > 25 ? 'medium' : 'low' },
-        ],
-      };
+      // Transformar respuesta de la API al formato de UI
+      const result = transformApiResponseToResult(apiResponse);
 
-      setResult(mockResult);
-      setLoading(false);
+      setResult(result);
       toast.success('Análisis completado exitosamente', {
         description: 'Los resultados están listos para su revisión',
       });
-    }, 2500);
+    } catch (error) {
+      console.error('Error al realizar la predicción:', error);
+      
+      let errorMessage = 'Error al procesar la predicción';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = (error as { message: string }).message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast.error('Error en la predicción', {
+        description: errorMessage || 'Por favor, verifique que el backend esté disponible y vuelva a intentar',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
