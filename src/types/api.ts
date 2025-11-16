@@ -54,3 +54,11 @@ export interface BatchPredictionResponse {
   model_used: string;
 }
 
+// Extended Prediction Result for UI
+export interface PredictionResult extends PredictionResponse {
+  risk: number; // probability * 100 (0-100)
+  riskLevel: 'high' | 'medium' | 'low'; // derived from probability
+  recommendations: string[]; // generated in frontend
+  riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[]; // generated in frontend
+}
+
