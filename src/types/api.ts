@@ -62,3 +62,26 @@ export interface PredictionResult extends PredictionResponse {
   riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[]; // generated in frontend
 }
 
+// Models List Response
+export interface ModelsListResponse {
+  models: string[];
+}
+
+// Model Detail Response
+export interface ModelDetailResponse {
+  name: string;
+  version?: string;
+  type?: string;
+  metrics?: {
+    accuracy?: number;
+    precision?: number;
+    recall?: number;
+    f1_score?: number;
+    auc_roc?: number;
+  };
+  feature_importance?: Array<{
+    feature: string;
+    importance: number;
+  }>;
+}
+

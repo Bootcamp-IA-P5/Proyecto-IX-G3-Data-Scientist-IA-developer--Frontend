@@ -7,6 +7,8 @@ import type {
   PredictionResponse,
   BatchPredictionRequest,
   BatchPredictionResponse,
+  ModelsListResponse,
+  ModelDetailResponse,
   ApiError,
 } from '../types/api';
 
@@ -68,6 +70,18 @@ export const strokeApi = {
       '/predict/batch',
       data
     );
+    return response.data;
+  },
+
+  // Get Models List
+  getModels: async (): Promise<ModelsListResponse> => {
+    const response = await apiClient.get<ModelsListResponse>('/models');
+    return response.data;
+  },
+
+  // Get Model Detail
+  getModelDetail: async (modelName: string): Promise<ModelDetailResponse> => {
+    const response = await apiClient.get<ModelDetailResponse>(`/models/${modelName}`);
     return response.data;
   },
 };
