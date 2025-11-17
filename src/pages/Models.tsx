@@ -9,7 +9,13 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
 } from 'recharts';
 import { strokeApi } from '../services/api';
 import type { ModelDetailResponse } from '../types/api';
@@ -33,29 +39,36 @@ export function Models() {
         setLoading(true);
         
         const statusResponse = await strokeApi.getStatus();
+        console.log('Status response:', statusResponse);
         
         let modelNames: string[] = [];
         try {
           const modelsResponse = await strokeApi.getModels();
           modelNames = modelsResponse.models || [];
+          console.log('Models from /models endpoint:', modelNames);
         } catch (error) {
           console.warn('Endpoint /models no disponible, usando /status como fallback');
           modelNames = statusResponse.available_models || [];
+          console.log('Models from /status fallback:', modelNames);
         }
 
         if (modelNames.length === 0) {
+          console.warn('No se encontraron modelos');
           setModels([]);
           setLoading(false);
           return;
         }
+
+        console.log(`Cargando detalles para ${modelNames.length} modelos:`, modelNames);
 
         const modelsWithDetails = await Promise.all(
           modelNames.map(async (modelName) => {
             let detail: ModelDetailResponse | null = null;
             try {
               detail = await strokeApi.getModelDetail(modelName);
+              console.log(`Detalles cargados para ${modelName}:`, detail);
             } catch (error) {
-              console.warn(`No se pudieron cargar detalles de ${modelName}`);
+              console.warn(`No se pudieron cargar detalles de ${modelName}:`, error);
             }
             
             const isActive = statusResponse.available_models.includes(modelName);
@@ -78,9 +91,12 @@ export function Models() {
               gradient = 'from-emerald-500 to-teal-500';
             }
 
+            // Asegurar que siempre tengamos un nombre, incluso sin detalles
+            const displayName = detail?.name || modelName.replace('.pkl', '').replace('_', ' ');
+
             return {
               ...(detail || {}),
-              name: detail?.name || modelName.replace('.pkl', ''),
+              name: displayName,
               isActive,
               icon,
               gradient,
@@ -88,6 +104,7 @@ export function Models() {
           })
         );
 
+        console.log('Modelos finales cargados:', modelsWithDetails);
         setModels(modelsWithDetails);
       } catch (error: any) {
         console.error('Error al cargar modelos:', error);
@@ -116,14 +133,67 @@ export function Models() {
     fetchModels();
   }, []);
 
-  const comparisonData = models
-    .filter((m) => m.metrics && m.metrics.accuracy !== undefined)
-    .map((model) => ({
-      name: model.name || 'Unknown',
-      accuracy: model.metrics?.accuracy || 0,
-    }));
+  // Preparar datos para comparación de todas las métricas
+  const comparisonData = [
+    {
+      metric: 'Accuracy',
+      ...models.reduce((acc, model) => {
+        if (model.metrics?.accuracy !== undefined) {
+          acc[model.name || 'Unknown'] = model.metrics.accuracy;
+        }
+        return acc;
+      }, {} as Record<string, number>),
+    },
+    {
+      metric: 'Precision',
+      ...models.reduce((acc, model) => {
+        if (model.metrics?.precision !== undefined) {
+          acc[model.name || 'Unknown'] = model.metrics.precision;
+        }
+        return acc;
+      }, {} as Record<string, number>),
+    },
+    {
+      metric: 'Recall',
+      ...models.reduce((acc, model) => {
+        if (model.metrics?.recall !== undefined) {
+          acc[model.name || 'Unknown'] = model.metrics.recall;
+        }
+        return acc;
+      }, {} as Record<string, number>),
+    },
+    {
+      metric: 'F1-Score',
+      ...models.reduce((acc, model) => {
+        if (model.metrics?.f1_score !== undefined) {
+          acc[model.name || 'Unknown'] = model.metrics.f1_score;
+        }
+        return acc;
+      }, {} as Record<string, number>),
+    },
+    {
+      metric: 'AUC-ROC',
+      ...models.reduce((acc, model) => {
+        if (model.metrics?.auc_roc !== undefined) {
+          acc[model.name || 'Unknown'] = model.metrics.auc_roc;
+        }
+        return acc;
+      }, {} as Record<string, number>),
+    },
+  ];
 
+  // Datos para el gráfico radar del modelo activo
   const activeModel = models.find((m) => m.isActive) || models[0];
+  const radarData = activeModel?.metrics
+    ? [
+        { metric: 'Accuracy', value: activeModel.metrics.accuracy || 0 },
+        { metric: 'Precision', value: activeModel.metrics.precision || 0 },
+        { metric: 'Recall', value: activeModel.metrics.recall || 0 },
+        { metric: 'F1-Score', value: activeModel.metrics.f1_score || 0 },
+        { metric: 'AUC-ROC', value: activeModel.metrics.auc_roc || 0 },
+      ]
+    : [];
+
   const featureImportance = activeModel?.feature_importance || [];
 
   if (loading) {
@@ -292,10 +362,11 @@ export function Models() {
       </motion.section>
 
       {/* Charts Section */}
-      {activeModel && (
-        <section className="grid lg:grid-cols-2 gap-6">
-          {/* Comparison Chart */}
-          {comparisonData.length > 0 && (
+      <section className="space-y-6">
+        {/* Top Row: Comparison and Radar Charts */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Comparison Chart - Todas las métricas */}
+          {comparisonData.length > 0 && comparisonData[0] && Object.keys(comparisonData[0]).length > 1 && (
             <motion.article
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -303,10 +374,7 @@ export function Models() {
             >
               <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-cyan-600" />
-                    Comparación de Accuracy
-                  </CardTitle>
+                  <CardTitle>Comparación de Métricas</CardTitle>
                   <CardDescription>Rendimiento comparativo entre modelos</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -314,7 +382,7 @@ export function Models() {
                     <BarChart data={comparisonData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                       <XAxis 
-                        dataKey="name" 
+                        dataKey="metric" 
                         stroke="#64748b" 
                         tick={{ fill: '#64748b', fontSize: 12 }}
                       />
@@ -322,7 +390,6 @@ export function Models() {
                         stroke="#64748b" 
                         domain={[0, 100]} 
                         tick={{ fill: '#64748b', fontSize: 12 }}
-                        label={{ value: 'Accuracy (%)', angle: -90, position: 'insideLeft' }}
                       />
                       <Tooltip
                         contentStyle={{
@@ -331,19 +398,20 @@ export function Models() {
                           borderRadius: '8px',
                           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                         }}
-                        formatter={(value: number) => [`${value.toFixed(1)}%`, 'Accuracy']}
+                        formatter={(value: number) => `${value.toFixed(1)}%`}
                       />
-                      <Bar 
-                        dataKey="accuracy" 
-                        fill="url(#accuracyGradient)" 
-                        radius={[8, 8, 0, 0]}
-                      />
-                      <defs>
-                        <linearGradient id="accuracyGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8b5cf6" />
-                          <stop offset="100%" stopColor="#06b6d4" />
-                        </linearGradient>
-                      </defs>
+                      <Legend />
+                      {models.map((model, index) => {
+                        const colors = ['#8b5cf6', '#3b82f6', '#06b6d4'];
+                        return (
+                          <Bar
+                            key={model.name}
+                            dataKey={model.name}
+                            fill={colors[index % colors.length]}
+                            radius={[8, 8, 0, 0]}
+                          />
+                        );
+                      })}
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -351,8 +419,8 @@ export function Models() {
             </motion.article>
           )}
 
-          {/* Feature Importance */}
-          {featureImportance.length > 0 ? (
+          {/* Radar Chart - Modelo Activo */}
+          {radarData.length > 0 && activeModel && (
             <motion.article
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -360,30 +428,31 @@ export function Models() {
             >
               <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-purple-600" />
-                    Importancia de Características
-                  </CardTitle>
+                  <CardTitle>Radar de Métricas - Modelo Activo</CardTitle>
                   <CardDescription>
-                    Features más relevantes en la predicción del modelo activo
+                    Visualización holística del {activeModel.name}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={featureImportance} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        type="number" 
-                        stroke="#64748b" 
-                        tick={{ fill: '#64748b', fontSize: 12 }}
-                        domain={[0, 1]}
-                      />
-                      <YAxis 
-                        dataKey="feature" 
-                        type="category" 
-                        stroke="#64748b" 
-                        width={120}
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis 
+                        dataKey="metric" 
+                        stroke="#64748b"
                         tick={{ fill: '#64748b', fontSize: 11 }}
+                      />
+                      <PolarRadiusAxis 
+                        domain={[0, 100]} 
+                        stroke="#64748b"
+                        tick={{ fill: '#64748b', fontSize: 10 }}
+                      />
+                      <Radar
+                        name={activeModel.name}
+                        dataKey="value"
+                        stroke="#8b5cf6"
+                        fill="#8b5cf6"
+                        fillOpacity={0.6}
                       />
                       <Tooltip
                         contentStyle={{
@@ -392,51 +461,74 @@ export function Models() {
                           borderRadius: '8px',
                           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                         }}
-                        formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
+                        formatter={(value: number) => `${value.toFixed(1)}%`}
                       />
-                      <Bar 
-                        dataKey="importance" 
-                        fill="url(#featureGradient)" 
-                        radius={[0, 8, 8, 0]}
-                      />
-                      <defs>
-                        <linearGradient id="featureGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#8b5cf6" />
-                          <stop offset="100%" stopColor="#06b6d4" />
-                        </linearGradient>
-                      </defs>
-                    </BarChart>
+                    </RadarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </motion.article>
-          ) : (
-            <motion.article
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-purple-600" />
-                    Importancia de Características
-                  </CardTitle>
-                  <CardDescription>
-                    Información de importancia de características no disponible
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="py-12 text-center">
-                  <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-                  <p className="text-sm text-slate-500">
-                    Los datos de importancia de características no están disponibles para este modelo
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.article>
           )}
-        </section>
-      )}
+        </div>
+
+        {/* Bottom Row: Feature Importance */}
+        {featureImportance.length > 0 && (
+          <motion.article
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>Importancia de Características</CardTitle>
+                <CardDescription>
+                  Features más relevantes en la predicción del modelo activo
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={featureImportance} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis 
+                      type="number" 
+                      stroke="#64748b" 
+                      tick={{ fill: '#64748b', fontSize: 12 }}
+                      domain={[0, 'dataMax']}
+                    />
+                    <YAxis 
+                      dataKey="feature" 
+                      type="category" 
+                      stroke="#64748b" 
+                      width={150}
+                      tick={{ fill: '#64748b', fontSize: 11 }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      }}
+                      formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
+                    />
+                    <Bar 
+                      dataKey="importance" 
+                      fill="url(#featureGradient)" 
+                      radius={[0, 8, 8, 0]}
+                    />
+                    <defs>
+                      <linearGradient id="featureGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#8b5cf6" />
+                        <stop offset="100%" stopColor="#06b6d4" />
+                      </linearGradient>
+                    </defs>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </motion.article>
+        )}
+      </section>
     </main>
   );
 }
