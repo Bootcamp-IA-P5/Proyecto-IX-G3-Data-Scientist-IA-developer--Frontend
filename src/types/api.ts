@@ -95,6 +95,20 @@ export interface ModelDetailResponse {
     false_negative?: number;
     true_positive?: number;
   } | number[][];
+  confusion_matrix_info?: {
+    labels: {
+      predicted: string[];
+      actual: string[];
+    };
+    values: number[][];
+    metrics: {
+      accuracy?: number;
+      precision?: number;
+      recall?: number;
+      f1_score?: number;
+      specificity?: number;
+    };
+  };
 }
 
 // Statistics Overview Response

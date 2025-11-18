@@ -816,7 +816,7 @@ export function Models() {
         )}
 
         {/* Confusion Matrix */}
-        {selectedModel?.confusion_matrix && (
+        {(selectedModel?.confusion_matrix_info || selectedModel?.confusion_matrix) && (
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -831,85 +831,234 @@ export function Models() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // Manejar ambos formatos: objeto o array 2D
-                  let tn = 0, fp = 0, fn = 0, tp = 0;
+                  // Priorizar confusion_matrix_info (nuevo formato), fallback a confusion_matrix (legacy)
+                  const matrixInfo = selectedModel.confusion_matrix_info;
+                  const legacyMatrix = selectedModel.confusion_matrix;
                   
-                  console.log('Processing confusion matrix:', selectedModel.confusion_matrix);
+                  let values: number[][] = [];
+                  let labels: { predicted: string[]; actual: string[] } = {
+                    predicted: ['No Ictus', 'Ictus'],
+                    actual: ['No Ictus', 'Ictus'],
+                  };
+                  let metrics: {
+                    accuracy?: number;
+                    precision?: number;
+                    recall?: number;
+                    f1_score?: number;
+                    specificity?: number;
+                  } = {};
                   
-                  if (Array.isArray(selectedModel.confusion_matrix)) {
-                    // Formato: [[TN, FP], [FN, TP]]
-                    const matrix = selectedModel.confusion_matrix as number[][];
-                    console.log('Matrix is array, length:', matrix.length);
-                    if (matrix.length >= 2 && Array.isArray(matrix[0]) && matrix[0].length >= 2) {
-                      tn = Number(matrix[0][0]) || 0;
-                      fp = Number(matrix[0][1]) || 0;
-                      fn = Number(matrix[1][0]) || 0;
-                      tp = Number(matrix[1][1]) || 0;
-                      console.log('Extracted values:', { tn, fp, fn, tp });
-                    } else {
-                      console.warn('Matrix format invalid:', matrix);
+                  // Normalizar labels: asegurar que siempre sea un objeto con predicted y actual
+                  const normalizeLabels = (labelsInput: any): { predicted: string[]; actual: string[] } => {
+                    if (!labelsInput) {
+                      return { predicted: ['No Ictus', 'Ictus'], actual: ['No Ictus', 'Ictus'] };
                     }
-                  } else if (selectedModel.confusion_matrix && typeof selectedModel.confusion_matrix === 'object') {
-                    // Formato: { true_negative, false_positive, false_negative, true_positive }
-                    const cm = selectedModel.confusion_matrix as {
-                      true_negative?: number;
-                      false_positive?: number;
-                      false_negative?: number;
-                      true_positive?: number;
-                    };
-                    tn = Number(cm.true_negative) || 0;
-                    fp = Number(cm.false_positive) || 0;
-                    fn = Number(cm.false_negative) || 0;
-                    tp = Number(cm.true_positive) || 0;
-                    console.log('Extracted from object:', { tn, fp, fn, tp });
-                  } else {
-                    console.warn('Unknown confusion matrix format:', selectedModel.confusion_matrix);
+                    // Si es un array, convertir a objeto
+                    if (Array.isArray(labelsInput)) {
+                      return {
+                        predicted: labelsInput.length >= 2 ? labelsInput : ['No Ictus', 'Ictus'],
+                        actual: labelsInput.length >= 2 ? labelsInput : ['No Ictus', 'Ictus'],
+                      };
+                    }
+                    // Si es un objeto, validar estructura
+                    if (typeof labelsInput === 'object' && labelsInput.predicted && labelsInput.actual) {
+                      return {
+                        predicted: Array.isArray(labelsInput.predicted) ? labelsInput.predicted : ['No Ictus', 'Ictus'],
+                        actual: Array.isArray(labelsInput.actual) ? labelsInput.actual : ['No Ictus', 'Ictus'],
+                      };
+                    }
+                    // Fallback
+                    return { predicted: ['No Ictus', 'Ictus'], actual: ['No Ictus', 'Ictus'] };
+                  };
+
+                  // Usar nuevo formato si está disponible y tiene values válidos
+                  if (matrixInfo && matrixInfo.values && Array.isArray(matrixInfo.values) && matrixInfo.values.length > 0) {
+                    values = matrixInfo.values;
+                    labels = normalizeLabels(matrixInfo.labels);
+                    metrics = matrixInfo.metrics || {};
+                    console.log('Using confusion_matrix_info:', { values, labels, metrics });
+                  } else if (legacyMatrix) {
+                    // Procesar formato legacy (fallback si confusion_matrix_info no tiene values)
+                    if (Array.isArray(legacyMatrix)) {
+                      values = legacyMatrix as number[][];
+                    } else if (typeof legacyMatrix === 'object') {
+                      const cm = legacyMatrix as {
+                        true_negative?: number;
+                        false_positive?: number;
+                        false_negative?: number;
+                        true_positive?: number;
+                      };
+                      values = [
+                        [Number(cm.true_negative) || 0, Number(cm.false_positive) || 0],
+                        [Number(cm.false_negative) || 0, Number(cm.true_positive) || 0],
+                      ];
+                    }
+                    // Si tenemos labels de matrixInfo pero usamos legacy values, normalizar los labels
+                    if (matrixInfo && matrixInfo.labels) {
+                      labels = normalizeLabels(matrixInfo.labels);
+                    }
+                    // Si tenemos metrics de matrixInfo pero usamos legacy values, mantener las metrics
+                    if (matrixInfo && matrixInfo.metrics) {
+                      metrics = matrixInfo.metrics;
+                    }
+                    console.log('Using legacy confusion_matrix (with optional labels/metrics from info):', { values, labels, metrics });
                   }
+                  
+                  // Validar que values sea un array válido con datos
+                  if (!values || !Array.isArray(values) || values.length === 0 || !Array.isArray(values[0]) || values[0].length === 0) {
+                    return (
+                      <div className="py-8 text-center text-slate-500">
+                        <p>No hay datos de matriz de confusión disponibles</p>
+                      </div>
+                    );
+                  }
+                  
+                  // Asegurar que tenemos al menos una matriz 2x2
+                  if (values.length < 2 || values[0].length < 2 || values[1].length < 2) {
+                    return (
+                      <div className="py-8 text-center text-slate-500">
+                        <p>Formato de matriz de confusión inválido</p>
+                      </div>
+                    );
+                  }
+                  
+                  const tn = values[0][0] || 0;
+                  const fp = values[0][1] || 0;
+                  const fn = values[1][0] || 0;
+                  const tp = values[1][1] || 0;
+                  const total = tn + fp + fn + tp;
+                  
+                  // Calcular métricas si no vienen del backend
+                  const calculatedMetrics = {
+                    accuracy: metrics.accuracy !== undefined 
+                      ? metrics.accuracy 
+                      : total > 0 ? (tp + tn) / total : 0,
+                    precision: metrics.precision !== undefined 
+                      ? metrics.precision 
+                      : tp + fp > 0 ? tp / (tp + fp) : 0,
+                    recall: metrics.recall !== undefined 
+                      ? metrics.recall 
+                      : tp + fn > 0 ? tp / (tp + fn) : 0,
+                    f1_score: metrics.f1_score !== undefined 
+                      ? metrics.f1_score 
+                      : (metrics.precision !== undefined && metrics.recall !== undefined)
+                        ? 2 * (metrics.precision * metrics.recall) / (metrics.precision + metrics.recall)
+                        : (tp + fp > 0 && tp + fn > 0)
+                          ? 2 * (tp / (tp + fp)) * (tp / (tp + fn)) / ((tp / (tp + fp)) + (tp / (tp + fn)))
+                          : 0,
+                    specificity: metrics.specificity !== undefined
+                      ? metrics.specificity
+                      : tn + fp > 0 ? tn / (tn + fp) : 0,
+                  };
 
                   return (
-                    <div className="flex flex-col items-center">
-                      <div className="grid grid-cols-3 gap-2 max-w-md">
-                        {/* Header */}
-                        <div></div>
-                        <div className="text-center text-sm font-semibold text-slate-700">Predicho: No Ictus</div>
-                        <div className="text-center text-sm font-semibold text-slate-700">Predicho: Ictus</div>
-                        
-                        {/* Row 1: Real No Ictus */}
-                        <div className="text-sm font-semibold text-slate-700 flex items-center">Real: No Ictus</div>
-                        <div className="p-4 rounded-lg bg-green-100 border-2 border-green-300 text-center">
-                          <div className="text-xs text-green-700 mb-1">Verdadero Negativo</div>
-                          <div className="text-2xl font-bold text-green-900">{tn}</div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-red-100 border-2 border-red-300 text-center">
-                          <div className="text-xs text-red-700 mb-1">Falso Positivo</div>
-                          <div className="text-2xl font-bold text-red-900">{fp}</div>
-                        </div>
-                        
-                        {/* Row 2: Real Ictus */}
-                        <div className="text-sm font-semibold text-slate-700 flex items-center">Real: Ictus</div>
-                        <div className="p-4 rounded-lg bg-orange-100 border-2 border-orange-300 text-center">
-                          <div className="text-xs text-orange-700 mb-1">Falso Negativo</div>
-                          <div className="text-2xl font-bold text-orange-900">{fn}</div>
-                        </div>
-                        <div className="p-4 rounded-lg bg-blue-100 border-2 border-blue-300 text-center">
-                          <div className="text-xs text-blue-700 mb-1">Verdadero Positivo</div>
-                          <div className="text-2xl font-bold text-blue-900">{tp}</div>
+                    <div className="space-y-6">
+                      {/* Matriz de Confusión */}
+                      <div className="flex flex-col items-center">
+                        <div className="grid grid-cols-3 gap-4">
+                          {/* Header */}
+                          <div className="flex items-center justify-center">
+                            <span className="text-sm font-semibold text-slate-600">Real / Predicho</span>
+                          </div>
+                          <div className="text-center p-3 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100">
+                            <p className="text-sm font-semibold text-slate-700 mb-1">
+                              {labels.predicted[0] || 'No Ictus'}
+                            </p>
+                            <p className="text-xs text-slate-500">Predicho</p>
+                          </div>
+                          <div className="text-center p-3 rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-100">
+                            <p className="text-sm font-semibold text-slate-700 mb-1">
+                              {labels.predicted[1] || 'Ictus'}
+                            </p>
+                            <p className="text-xs text-slate-500">Predicho</p>
+                          </div>
+                          
+                          {/* Row 1: Real No Ictus */}
+                          <div className="flex items-center justify-end pr-4">
+                            <p className="text-sm font-semibold text-slate-700">
+                              {labels.actual[0] || 'No Ictus'}
+                            </p>
+                          </div>
+                          <div className="p-6 rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100 border-2 border-blue-300 text-center shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                            <div className="text-xs font-medium text-blue-800 mb-2">Verdadero Negativo</div>
+                            <div className="text-3xl font-bold text-blue-900 mb-1">{tn}</div>
+                            {total > 0 && (
+                              <div className="text-xs font-semibold text-blue-700 bg-blue-50 rounded-full px-2 py-1 inline-block mt-1">
+                                {((tn / total) * 100).toFixed(1)}%
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-6 rounded-xl bg-gradient-to-br from-purple-200 to-blue-200 border-2 border-purple-400 text-center shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                            <div className="text-xs font-medium text-purple-900 mb-2">Falso Positivo</div>
+                            <div className="text-3xl font-bold text-purple-900 mb-1">{fp}</div>
+                            {total > 0 && (
+                              <div className="text-xs font-semibold text-purple-800 bg-purple-50 rounded-full px-2 py-1 inline-block mt-1">
+                                {((fp / total) * 100).toFixed(1)}%
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Row 2: Real Ictus */}
+                          <div className="flex items-center justify-end pr-4">
+                            <p className="text-sm font-semibold text-slate-700">
+                              {labels.actual[1] || 'Ictus'}
+                            </p>
+                          </div>
+                          <div className="p-6 rounded-xl bg-gradient-to-br from-cyan-200 to-blue-200 border-2 border-cyan-400 text-center shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                            <div className="text-xs font-medium text-cyan-900 mb-2">Falso Negativo</div>
+                            <div className="text-3xl font-bold text-cyan-900 mb-1">{fn}</div>
+                            {total > 0 && (
+                              <div className="text-xs font-semibold text-cyan-800 bg-cyan-50 rounded-full px-2 py-1 inline-block mt-1">
+                                {((fn / total) * 100).toFixed(1)}%
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-6 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 border-2 border-purple-600 text-center shadow-lg hover:shadow-xl transition-all hover:scale-105 text-white">
+                            <div className="text-xs font-medium text-purple-100 mb-2">Verdadero Positivo</div>
+                            <div className="text-3xl font-bold text-white mb-1">{tp}</div>
+                            {total > 0 && (
+                              <div className="text-xs font-semibold text-purple-100 bg-white/20 rounded-full px-2 py-1 inline-block mt-1">
+                                {((tp / total) * 100).toFixed(1)}%
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       
-                      {/* Resumen */}
-                      <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
-                        <div className="text-center">
-                          <p className="text-slate-600">Precisión</p>
-                          <p className="text-lg font-semibold text-slate-900">
-                            {tp + fp > 0 ? ((tp / (tp + fp)) * 100).toFixed(1) : '0.0'}%
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-slate-600">Sensibilidad (Recall)</p>
-                          <p className="text-lg font-semibold text-slate-900">
-                            {tp + fn > 0 ? ((tp / (tp + fn)) * 100).toFixed(1) : '0.0'}%
-                          </p>
+                      {/* Métricas Calculadas */}
+                      <div className="pt-6 border-t border-slate-200">
+                        <h4 className="text-sm font-semibold text-slate-700 mb-4 text-center">Métricas de Rendimiento</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-600 mb-1 font-medium">Accuracy</p>
+                            <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                              {(calculatedMetrics.accuracy * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-600 mb-1 font-medium">Precision</p>
+                            <p className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                              {(calculatedMetrics.precision * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-600 mb-1 font-medium">Recall</p>
+                            <p className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                              {(calculatedMetrics.recall * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-600 mb-1 font-medium">F1-Score</p>
+                            <p className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                              {(calculatedMetrics.f1_score * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-cyan-50 border border-purple-200 text-center shadow-sm hover:shadow-md transition-shadow">
+                            <p className="text-xs text-slate-600 mb-1 font-medium">Specificity</p>
+                            <p className="text-xl font-bold bg-gradient-to-r from-purple-600 to-cyan-600 bg-clip-text text-transparent">
+                              {(calculatedMetrics.specificity * 100).toFixed(1)}%
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
