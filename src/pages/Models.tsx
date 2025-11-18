@@ -1122,15 +1122,51 @@ export function Models() {
         )}
 
         {/* ROC and Precision-Recall Curves */}
-        {selectedModel && (selectedModel.roc_curve || selectedModel.precision_recall_curve) && (
+        {models.length > 0 && models.some(m => m.roc_curve || m.precision_recall_curve) && selectedModel && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.8 }}
-            className="grid lg:grid-cols-2 gap-6 items-stretch"
+            className="space-y-6"
           >
+            {/* Header with Model Selector */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Curvas de Evaluación</h2>
+                <p className="text-slate-600">Análisis de rendimiento mediante curvas ROC y Precision-Recall</p>
+              </div>
+              <Select
+                value={selectedModelName || ''}
+                onValueChange={(value) => setSelectedModelName(value)}
+              >
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Seleccionar modelo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.name} value={model.name}>
+                      <div className="flex items-center gap-2">
+                        <span>{model.name}</span>
+                        {model.isActive && (
+                          <Badge variant="outline" className="text-xs">
+                            Activo
+                          </Badge>
+                        )}
+                        {!model.roc_curve && !model.precision_recall_curve && (
+                          <Badge variant="outline" className="text-xs text-slate-400">
+                            Sin curvas
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-6 items-stretch">
             {/* ROC Curve */}
-            {selectedModel.roc_curve && (
+            {selectedModel.roc_curve ? (
               <motion.article
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1222,10 +1258,29 @@ export function Models() {
                   </CardContent>
                 </Card>
               </motion.article>
+            ) : (
+              <motion.article
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="flex"
+              >
+                <Card className="shadow-2xl border-2 border-slate-200 flex flex-col w-full">
+                  <CardContent className="py-12 text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+                      <AlertCircle className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-600 font-medium mb-2">No hay datos de curva ROC disponibles</p>
+                    <p className="text-sm text-slate-500">
+                      El modelo <span className="font-semibold">{selectedModel.name}</span> no tiene curva ROC en el backend.
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.article>
             )}
 
             {/* Precision-Recall Curve */}
-            {selectedModel.precision_recall_curve && (
+            {selectedModel.precision_recall_curve ? (
               <motion.article
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -1308,7 +1363,27 @@ export function Models() {
                   </CardContent>
                 </Card>
               </motion.article>
+            ) : (
+              <motion.article
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="flex"
+              >
+                <Card className="shadow-2xl border-2 border-slate-200 flex flex-col w-full">
+                  <CardContent className="py-12 text-center">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+                      <AlertCircle className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <p className="text-slate-600 font-medium mb-2">No hay datos de curva Precision-Recall disponibles</p>
+                    <p className="text-sm text-slate-500">
+                      El modelo <span className="font-semibold">{selectedModel.name}</span> no tiene curva Precision-Recall en el backend.
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.article>
             )}
+            </div>
           </motion.section>
         )}
       </section>
