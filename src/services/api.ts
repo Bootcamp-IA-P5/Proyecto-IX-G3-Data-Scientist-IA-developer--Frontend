@@ -9,6 +9,9 @@ import type {
   BatchPredictionResponse,
   ModelsListResponse,
   ModelDetailResponse,
+  StatsOverviewResponse,
+  RiskDistributionResponse,
+  ModelsCompareResponse,
   ApiError,
 } from '../types/api';
 
@@ -82,6 +85,24 @@ export const strokeApi = {
   // Get Model Detail
   getModelDetail: async (modelName: string): Promise<ModelDetailResponse> => {
     const response = await apiClient.get<ModelDetailResponse>(`/models/${modelName}`);
+    return response.data;
+  },
+
+  // Statistics Overview
+  getStatsOverview: async (): Promise<StatsOverviewResponse> => {
+    const response = await apiClient.get<StatsOverviewResponse>('/stats/overview');
+    return response.data;
+  },
+
+  // Risk Distribution
+  getRiskDistribution: async (): Promise<RiskDistributionResponse> => {
+    const response = await apiClient.get<RiskDistributionResponse>('/stats/risk-distribution');
+    return response.data;
+  },
+
+  // Models Compare
+  getModelsCompare: async (): Promise<ModelsCompareResponse> => {
+    const response = await apiClient.get<ModelsCompareResponse>('/stats/models/compare');
     return response.data;
   },
 };

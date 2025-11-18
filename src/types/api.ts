@@ -85,3 +85,36 @@ export interface ModelDetailResponse {
   }>;
 }
 
+// Statistics Overview Response
+export interface StatsOverviewResponse {
+  total_predictions: number;
+  stroke_predictions: number;
+  no_stroke_predictions: number;
+  average_probability: number;
+}
+
+// Risk Distribution Response
+export interface RiskDistributionResponse {
+  low_risk: number;
+  medium_risk: number;
+  high_risk: number;
+  distribution: {
+    Low: number;
+    Medium: number;
+    High: number;
+  };
+}
+
+// Models Compare Response
+export interface ModelsCompareResponse {
+  models: string[];
+  best_model: string;
+  metrics: Record<string, {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1_score: number;
+    auc_roc: number;
+  }>;
+}
+
