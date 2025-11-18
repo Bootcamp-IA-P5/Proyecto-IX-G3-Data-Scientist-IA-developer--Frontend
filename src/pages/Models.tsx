@@ -16,6 +16,8 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  LineChart,
+  Line,
 } from 'recharts';
 import { strokeApi } from '../services/api';
 import type { ModelDetailResponse } from '../types/api';
@@ -1117,6 +1119,197 @@ export function Models() {
               </CardContent>
             </Card>
           </motion.article>
+        )}
+
+        {/* ROC and Precision-Recall Curves */}
+        {selectedModel && (selectedModel.roc_curve || selectedModel.precision_recall_curve) && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="grid lg:grid-cols-2 gap-6 items-stretch"
+          >
+            {/* ROC Curve */}
+            {selectedModel.roc_curve && (
+              <motion.article
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="flex"
+              >
+                <Card className="shadow-2xl border-2 border-slate-200 hover:border-purple-200 transition-all flex flex-col w-full">
+                  <CardHeader className="pb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex-1 space-y-4">
+                        <CardTitle className="text-xl flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span>Curva ROC</span>
+                          <span className="text-base font-normal text-slate-500">
+                            ({selectedModel.name || selectedModel.type || 'Modelo'})
+                          </span>
+                        </CardTitle>
+                        <CardDescription className="text-sm leading-relaxed text-slate-600 max-w-2xl">
+                          {selectedModel.roc_curve.description || 
+                            'La curva ROC muestra la relación entre la tasa de verdaderos positivos (TPR) y la tasa de falsos positivos (FPR) para diferentes umbrales de decisión. Un AUC cercano a 1.0 indica un excelente modelo.'}
+                        </CardDescription>
+                      </div>
+                      {selectedModel.roc_curve.auc !== undefined && (
+                        <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 text-sm font-semibold shadow-lg flex-shrink-0">
+                          AUC: {selectedModel.roc_curve.auc.toFixed(2)}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4 pb-6 flex-1">
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart
+                        data={selectedModel.roc_curve.fpr.map((fpr, index) => ({
+                          fpr: fpr * 100,
+                          tpr: selectedModel.roc_curve!.tpr[index] * 100,
+                        }))}
+                        margin={{ top: 30, right: 40, left: 30, bottom: 50 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis
+                          dataKey="fpr"
+                          label={{ value: 'FPR - False Positive Rate (%)', position: 'insideBottom', offset: -10, style: { fontSize: '13px', fontWeight: '500' } }}
+                          stroke="#64748b"
+                          tick={{ fill: '#64748b', fontSize: 11 }}
+                          domain={[0, 100]}
+                          tickFormatter={(value) => value.toFixed(2)}
+                        />
+                        <YAxis
+                          label={{ value: 'TPR - True Positive Rate (%)', angle: -90, position: 'insideLeft', offset: -5, style: { fontSize: '13px', fontWeight: '500' } }}
+                          stroke="#64748b"
+                          tick={{ fill: '#64748b', fontSize: 11 }}
+                          domain={[0, 100]}
+                          tickFormatter={(value) => value.toFixed(2)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                          }}
+                          formatter={(value: number) => `${Number(value).toFixed(2)}%`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="tpr"
+                          stroke="url(#rocGradient)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="ROC Curve"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="fpr"
+                          stroke="#94a3b8"
+                          strokeWidth={1}
+                          strokeDasharray="5 5"
+                          dot={false}
+                          name="Random Classifier"
+                        />
+                        <defs>
+                          <linearGradient id="rocGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#3b82f6" />
+                          </linearGradient>
+                        </defs>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </motion.article>
+            )}
+
+            {/* Precision-Recall Curve */}
+            {selectedModel.precision_recall_curve && (
+              <motion.article
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="flex"
+              >
+                <Card className="shadow-2xl border-2 border-slate-200 hover:border-cyan-200 transition-all flex flex-col w-full">
+                  <CardHeader className="pb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex-1 space-y-4">
+                        <CardTitle className="text-xl flex flex-col sm:flex-row sm:items-center gap-2">
+                          <span>Curva Precision-Recall</span>
+                          <span className="text-base font-normal text-slate-500">
+                            ({selectedModel.name || selectedModel.type || 'Modelo'})
+                          </span>
+                        </CardTitle>
+                        <CardDescription className="text-sm leading-relaxed text-slate-600 max-w-2xl">
+                          {selectedModel.precision_recall_curve.description || 
+                            'La curva Precision-Recall muestra el balance entre precisión (exactitud de predicciones positivas) y recall (capacidad de detectar todos los casos positivos). Es especialmente útil cuando las clases están desbalanceadas.'}
+                        </CardDescription>
+                      </div>
+                      {selectedModel.precision_recall_curve.f1 !== undefined && (
+                        <Badge className="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-4 py-2 text-sm font-semibold shadow-lg flex-shrink-0">
+                          F1: {selectedModel.precision_recall_curve.f1.toFixed(2)}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-4 pb-6 flex-1">
+                    <ResponsiveContainer width="100%" height={400}>
+                      <LineChart
+                        data={selectedModel.precision_recall_curve.recall.map((recall, index) => ({
+                          recall: recall * 100,
+                          precision: selectedModel.precision_recall_curve!.precision[index] * 100,
+                        }))}
+                        margin={{ top: 30, right: 40, left: 30, bottom: 50 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis
+                          dataKey="recall"
+                          label={{ value: 'Recall - Sensibilidad (%)', position: 'insideBottom', offset: -10, style: { fontSize: '13px', fontWeight: '500' } }}
+                          stroke="#64748b"
+                          tick={{ fill: '#64748b', fontSize: 11 }}
+                          domain={[0, 100]}
+                          tickFormatter={(value) => value.toFixed(2)}
+                        />
+                        <YAxis
+                          label={{ value: 'Precision - Exactitud (%)', angle: -90, position: 'insideLeft', offset: -5, style: { fontSize: '13px', fontWeight: '500' } }}
+                          stroke="#64748b"
+                          tick={{ fill: '#64748b', fontSize: 11 }}
+                          domain={[0, 100]}
+                          tickFormatter={(value) => value.toFixed(2)}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                          }}
+                          formatter={(value: number) => `${Number(value).toFixed(2)}%`}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="precision"
+                          stroke="url(#prGradient)"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Precision-Recall Curve"
+                        />
+                        <defs>
+                          <linearGradient id="prGradient" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#06b6d4" />
+                            <stop offset="100%" stopColor="#3b82f6" />
+                          </linearGradient>
+                        </defs>
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </motion.article>
+            )}
+          </motion.section>
         )}
       </section>
     </main>

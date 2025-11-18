@@ -117,6 +117,18 @@ export interface ModelDetailResponse {
       specificity?: number;
     };
   };
+  roc_curve?: {
+    fpr: number[];
+    tpr: number[];
+    auc: number;
+    description?: string;
+  };
+  precision_recall_curve?: {
+    precision: number[];
+    recall: number[];
+    f1: number;
+    description?: string;
+  };
 }
 
 // Statistics Overview Response
