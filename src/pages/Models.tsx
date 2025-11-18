@@ -22,6 +22,13 @@ import type { ModelDetailResponse } from '../types/api';
 import { toast } from 'sonner';
 import { Badge } from '../components/ui/badge';
 import { Progress } from '../components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 
 interface ModelWithDetails extends ModelDetailResponse {
   isActive?: boolean;
@@ -32,6 +39,7 @@ interface ModelWithDetails extends ModelDetailResponse {
 export function Models() {
   const [models, setModels] = useState<ModelWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -172,6 +180,11 @@ export function Models() {
 
         console.log('Modelos finales cargados:', modelsWithDetails);
         setModels(modelsWithDetails);
+        // Establecer el modelo seleccionado por defecto (el activo o el primero)
+        if (modelsWithDetails.length > 0) {
+          const defaultModel = modelsWithDetails.find(m => m.isActive) || modelsWithDetails[0];
+          setSelectedModelName(defaultModel.name);
+        }
       } catch (error: any) {
         console.error('Error al cargar modelos:', error);
         
@@ -253,47 +266,45 @@ export function Models() {
     },
   ];
 
-  // Datos para el gráfico radar del modelo activo
-  const activeModel = models.find((m) => m.isActive) || models[0];
+  // Obtener el modelo seleccionado (o el activo por defecto)
+  const selectedModel = selectedModelName 
+    ? models.find((m) => m.name === selectedModelName) 
+    : models.find((m) => m.isActive) || models[0];
   
-  // Debug: verificar qué modelo está activo y qué datos tiene
-  console.log('=== DEBUG ACTIVE MODEL ===');
-  console.log('Total modelos:', models.length);
-  console.log('Modelos con isActive:', models.filter(m => m.isActive).map(m => m.name));
-  console.log('Active Model seleccionado:', activeModel?.name);
-  console.log('Active Model completo:', activeModel);
-  console.log('Active Model feature_importance existe:', !!activeModel?.feature_importance);
-  console.log('Active Model feature_importance tipo:', typeof activeModel?.feature_importance);
-  console.log('Active Model feature_importance es array:', Array.isArray(activeModel?.feature_importance));
-  if (activeModel?.feature_importance) {
-    console.log('Active Model feature_importance length:', activeModel.feature_importance.length);
-    console.log('Active Model feature_importance primeros 3:', activeModel.feature_importance.slice(0, 3));
+  // Debug: verificar qué modelo está seleccionado y qué datos tiene
+  console.log('=== DEBUG SELECTED MODEL ===');
+  console.log('Modelo seleccionado:', selectedModelName);
+  console.log('Selected Model objeto:', selectedModel?.name);
+  console.log('Selected Model feature_importance existe:', !!selectedModel?.feature_importance);
+  console.log('Selected Model feature_importance es array:', Array.isArray(selectedModel?.feature_importance));
+  if (selectedModel?.feature_importance) {
+    console.log('Selected Model feature_importance length:', selectedModel.feature_importance.length);
   }
   console.log('========================');
-  const radarData = activeModel?.metrics
+  const radarData = selectedModel?.metrics
     ? [
-        { metric: 'Accuracy', value: normalizeMetric(activeModel.metrics.accuracy || 0) },
-        { metric: 'Precision', value: normalizeMetric(activeModel.metrics.precision || 0) },
-        { metric: 'Recall', value: normalizeMetric(activeModel.metrics.recall || 0) },
-        { metric: 'F1-Score', value: normalizeMetric(activeModel.metrics.f1_score || 0) },
-        { metric: 'AUC-ROC', value: normalizeMetric(activeModel.metrics.auc_roc || 0) },
+        { metric: 'Accuracy', value: normalizeMetric(selectedModel.metrics.accuracy || 0) },
+        { metric: 'Precision', value: normalizeMetric(selectedModel.metrics.precision || 0) },
+        { metric: 'Recall', value: normalizeMetric(selectedModel.metrics.recall || 0) },
+        { metric: 'F1-Score', value: normalizeMetric(selectedModel.metrics.f1_score || 0) },
+        { metric: 'AUC-ROC', value: normalizeMetric(selectedModel.metrics.auc_roc || 0) },
       ]
     : [];
 
   // Procesar feature importance: ordenar por importancia y tomar top 25
   let featureImportance: Array<{ feature: string; importance: number }> = [];
   
-  if (activeModel?.feature_importance) {
-    console.log('Processing feature importance from activeModel:', {
-      isArray: Array.isArray(activeModel.feature_importance),
-      length: Array.isArray(activeModel.feature_importance) ? activeModel.feature_importance.length : 'N/A',
-      firstItem: Array.isArray(activeModel.feature_importance) && activeModel.feature_importance.length > 0 
-        ? activeModel.feature_importance[0] 
+  if (selectedModel?.feature_importance) {
+    console.log('Processing feature importance from selectedModel:', {
+      isArray: Array.isArray(selectedModel.feature_importance),
+      length: Array.isArray(selectedModel.feature_importance) ? selectedModel.feature_importance.length : 'N/A',
+      firstItem: Array.isArray(selectedModel.feature_importance) && selectedModel.feature_importance.length > 0 
+        ? selectedModel.feature_importance[0] 
         : 'N/A',
     });
     
-    if (Array.isArray(activeModel.feature_importance) && activeModel.feature_importance.length > 0) {
-      featureImportance = [...activeModel.feature_importance]
+    if (Array.isArray(selectedModel.feature_importance) && selectedModel.feature_importance.length > 0) {
+      featureImportance = [...selectedModel.feature_importance]
         .map((item: any) => {
           // Manejar diferentes formatos de feature importance
           // Formato 1: {feature: "risk_score", importance: 109.0} (XGBoost, Random Forest)
@@ -332,17 +343,17 @@ export function Models() {
         firstThree: featureImportance.slice(0, 3),
       });
     } else {
-      console.warn('Feature importance is not a valid array:', activeModel.feature_importance);
+      console.warn('Feature importance is not a valid array:', selectedModel.feature_importance);
     }
   } else {
-    console.warn('No feature_importance in activeModel:', activeModel);
+    console.warn('No feature_importance in selectedModel:', selectedModel);
   }
 
   // Debug: log para verificar datos
-  console.log('Active Model:', activeModel?.name);
-  console.log('Feature Importance RAW:', activeModel?.feature_importance);
+  console.log('Selected Model:', selectedModel?.name);
+  console.log('Feature Importance RAW:', selectedModel?.feature_importance);
   console.log('Feature Importance Processed:', featureImportance);
-  console.log('Confusion Matrix:', activeModel?.confusion_matrix);
+  console.log('Confusion Matrix:', selectedModel?.confusion_matrix);
 
   if (loading) {
     return (
@@ -632,8 +643,8 @@ export function Models() {
             </motion.article>
           )}
 
-          {/* Radar Chart - Modelo Activo */}
-          {radarData.length > 0 && activeModel && (
+          {/* Radar Chart - Modelo Seleccionado */}
+          {radarData.length > 0 && selectedModel && (
             <motion.article
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -641,10 +652,36 @@ export function Models() {
             >
               <Card className="shadow-lg">
                 <CardHeader>
-                  <CardTitle>Radar de Métricas - Modelo Activo</CardTitle>
-                  <CardDescription>
-                    Visualización holística del {activeModel.name}
-                  </CardDescription>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <CardTitle>Radar de Métricas</CardTitle>
+                      <CardDescription>
+                        Visualización holística del modelo seleccionado
+                      </CardDescription>
+                    </div>
+                    <Select
+                      value={selectedModelName || ''}
+                      onValueChange={(value) => setSelectedModelName(value)}
+                    >
+                      <SelectTrigger className="w-[250px]">
+                        <SelectValue placeholder="Seleccionar modelo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((model) => (
+                          <SelectItem key={model.name} value={model.name}>
+                            <div className="flex items-center gap-2">
+                              <span>{model.name}</span>
+                              {model.isActive && (
+                                <Badge variant="outline" className="text-xs">
+                                  Activo
+                                </Badge>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -660,13 +697,13 @@ export function Models() {
                         stroke="#64748b"
                         tick={{ fill: '#64748b', fontSize: 10 }}
                       />
-                      <Radar
-                        name={activeModel.name}
-                        dataKey="value"
-                        stroke="#8b5cf6"
-                        fill="#8b5cf6"
-                        fillOpacity={0.6}
-                      />
+                           <Radar
+                             name={selectedModel.name}
+                             dataKey="value"
+                             stroke="#8b5cf6"
+                             fill="#8b5cf6"
+                             fillOpacity={0.6}
+                           />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -685,7 +722,7 @@ export function Models() {
         </div>
 
         {/* Bottom Row: Feature Importance */}
-        {activeModel && (
+        {selectedModel && (
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -693,10 +730,36 @@ export function Models() {
           >
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Importancia de Características</CardTitle>
-                <CardDescription>
-                  Features más relevantes en la predicción del {activeModel.name}
-                </CardDescription>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <CardTitle>Importancia de Características</CardTitle>
+                    <CardDescription>
+                      Features más relevantes en la predicción del modelo seleccionado
+                    </CardDescription>
+                  </div>
+                  <Select
+                    value={selectedModelName || ''}
+                    onValueChange={(value) => setSelectedModelName(value)}
+                  >
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Seleccionar modelo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map((model) => (
+                        <SelectItem key={model.name} value={model.name}>
+                          <div className="flex items-center gap-2">
+                            <span>{model.name}</span>
+                            {model.isActive && (
+                              <Badge variant="outline" className="text-xs">
+                                Activo
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
                 {featureImportance.length > 0 ? (
@@ -753,7 +816,7 @@ export function Models() {
         )}
 
         {/* Confusion Matrix */}
-        {activeModel?.confusion_matrix && (
+        {selectedModel?.confusion_matrix && (
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -763,7 +826,7 @@ export function Models() {
               <CardHeader>
                 <CardTitle>Matriz de Confusión</CardTitle>
                 <CardDescription>
-                  Clasificación de predicciones del {activeModel.name}
+                  Clasificación de predicciones del {selectedModel.name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -771,11 +834,11 @@ export function Models() {
                   // Manejar ambos formatos: objeto o array 2D
                   let tn = 0, fp = 0, fn = 0, tp = 0;
                   
-                  console.log('Processing confusion matrix:', activeModel.confusion_matrix);
+                  console.log('Processing confusion matrix:', selectedModel.confusion_matrix);
                   
-                  if (Array.isArray(activeModel.confusion_matrix)) {
+                  if (Array.isArray(selectedModel.confusion_matrix)) {
                     // Formato: [[TN, FP], [FN, TP]]
-                    const matrix = activeModel.confusion_matrix as number[][];
+                    const matrix = selectedModel.confusion_matrix as number[][];
                     console.log('Matrix is array, length:', matrix.length);
                     if (matrix.length >= 2 && Array.isArray(matrix[0]) && matrix[0].length >= 2) {
                       tn = Number(matrix[0][0]) || 0;
@@ -786,9 +849,9 @@ export function Models() {
                     } else {
                       console.warn('Matrix format invalid:', matrix);
                     }
-                  } else if (activeModel.confusion_matrix && typeof activeModel.confusion_matrix === 'object') {
+                  } else if (selectedModel.confusion_matrix && typeof selectedModel.confusion_matrix === 'object') {
                     // Formato: { true_negative, false_positive, false_negative, true_positive }
-                    const cm = activeModel.confusion_matrix as {
+                    const cm = selectedModel.confusion_matrix as {
                       true_negative?: number;
                       false_positive?: number;
                       false_negative?: number;
@@ -800,7 +863,7 @@ export function Models() {
                     tp = Number(cm.true_positive) || 0;
                     console.log('Extracted from object:', { tn, fp, fn, tp });
                   } else {
-                    console.warn('Unknown confusion matrix format:', activeModel.confusion_matrix);
+                    console.warn('Unknown confusion matrix format:', selectedModel.confusion_matrix);
                   }
 
                   return (
