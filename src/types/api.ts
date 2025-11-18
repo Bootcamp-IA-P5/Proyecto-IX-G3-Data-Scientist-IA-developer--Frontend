@@ -83,8 +83,18 @@ export interface ModelDetailResponse {
   hyperparameters?: Record<string, any>;
   feature_importance?: Array<{
     feature: string;
-    importance: number;
+    importance?: number;
+    coefficient?: number;
+    abs_coefficient?: number;
+    odds_ratio?: number;
   }>;
+  optimal_threshold?: number;
+  confusion_matrix?: {
+    true_negative?: number;
+    false_positive?: number;
+    false_negative?: number;
+    true_positive?: number;
+  } | number[][];
 }
 
 // Statistics Overview Response

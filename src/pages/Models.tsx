@@ -68,6 +68,34 @@ export function Models() {
               // Intentar cargar detalles, pero si falla (CORS u otro error), continuamos sin detalles
               detail = await strokeApi.getModelDetail(modelName);
               console.log(`Detalles cargados para ${modelName}:`, detail);
+              // Debug: verificar hiperparámetros
+              if (detail?.hyperparameters) {
+                console.log(`Hiperparámetros para ${modelName}:`, detail.hyperparameters);
+                console.log(`Número de hiperparámetros: ${Object.keys(detail.hyperparameters).length}`);
+              } else {
+                console.log(`No hay hiperparámetros para ${modelName}`);
+              }
+              // Debug: verificar feature importance
+              if (detail?.feature_importance) {
+                console.log(`Feature Importance RAW para ${modelName}:`, detail.feature_importance);
+                console.log(`Primeros 3 items:`, detail.feature_importance.slice(0, 3));
+                console.log(`Tipos de datos:`, detail.feature_importance.map((item: any) => ({
+                  feature: item.feature,
+                  importance: item.importance,
+                  type: typeof item.importance,
+                  isNull: item.importance === null,
+                  isUndefined: item.importance === undefined,
+                })).slice(0, 3));
+              } else {
+                console.log(`No hay feature_importance para ${modelName}`);
+              }
+              // Debug: verificar confusion matrix
+              if (detail?.confusion_matrix) {
+                console.log(`Confusion Matrix RAW para ${modelName}:`, detail.confusion_matrix);
+                console.log(`Tipo:`, Array.isArray(detail.confusion_matrix) ? 'Array' : 'Object');
+              } else {
+                console.log(`No hay confusion_matrix para ${modelName}`);
+              }
             } catch (error: any) {
               // Silenciar errores de CORS, Network Error, o errores 500/404/400
               // Si el backend está funcionando correctamente, estos errores no deberían aparecer
@@ -113,14 +141,32 @@ export function Models() {
               ? detail.name.replace('.pkl', '').replace(/_/g, ' ')
               : modelName.replace('.pkl', '').replace(/_/g, ' ');
 
-            return {
+            // Construir el objeto del modelo preservando TODOS los datos del backend
+            // Hacer spread primero, luego sobrescribir solo lo necesario
+            const modelData: ModelWithDetails = {
+              // Primero hacer spread de detail para preservar TODOS los campos del backend
               ...(detail || {}),
+              // Luego sobrescribir solo los campos que necesitamos transformar
               name: displayName,
               type: detail?.type || detail?.model_type || 'Machine Learning',
               isActive,
               icon,
               gradient,
+              // Asegurar que estos campos se preserven explícitamente (por si acaso)
+              feature_importance: detail?.feature_importance,
+              confusion_matrix: detail?.confusion_matrix,
+              optimal_threshold: detail?.optimal_threshold,
             };
+            
+            console.log(`Modelo procesado ${modelName}:`, {
+              name: modelData.name,
+              hasFeatureImportance: !!modelData.feature_importance,
+              featureImportanceLength: modelData.feature_importance?.length || 0,
+              hasConfusionMatrix: !!modelData.confusion_matrix,
+              hasOptimalThreshold: modelData.optimal_threshold !== undefined,
+            });
+            
+            return modelData;
           })
         );
 
@@ -209,6 +255,21 @@ export function Models() {
 
   // Datos para el gráfico radar del modelo activo
   const activeModel = models.find((m) => m.isActive) || models[0];
+  
+  // Debug: verificar qué modelo está activo y qué datos tiene
+  console.log('=== DEBUG ACTIVE MODEL ===');
+  console.log('Total modelos:', models.length);
+  console.log('Modelos con isActive:', models.filter(m => m.isActive).map(m => m.name));
+  console.log('Active Model seleccionado:', activeModel?.name);
+  console.log('Active Model completo:', activeModel);
+  console.log('Active Model feature_importance existe:', !!activeModel?.feature_importance);
+  console.log('Active Model feature_importance tipo:', typeof activeModel?.feature_importance);
+  console.log('Active Model feature_importance es array:', Array.isArray(activeModel?.feature_importance));
+  if (activeModel?.feature_importance) {
+    console.log('Active Model feature_importance length:', activeModel.feature_importance.length);
+    console.log('Active Model feature_importance primeros 3:', activeModel.feature_importance.slice(0, 3));
+  }
+  console.log('========================');
   const radarData = activeModel?.metrics
     ? [
         { metric: 'Accuracy', value: normalizeMetric(activeModel.metrics.accuracy || 0) },
@@ -219,7 +280,69 @@ export function Models() {
       ]
     : [];
 
-  const featureImportance = activeModel?.feature_importance || [];
+  // Procesar feature importance: ordenar por importancia y tomar top 25
+  let featureImportance: Array<{ feature: string; importance: number }> = [];
+  
+  if (activeModel?.feature_importance) {
+    console.log('Processing feature importance from activeModel:', {
+      isArray: Array.isArray(activeModel.feature_importance),
+      length: Array.isArray(activeModel.feature_importance) ? activeModel.feature_importance.length : 'N/A',
+      firstItem: Array.isArray(activeModel.feature_importance) && activeModel.feature_importance.length > 0 
+        ? activeModel.feature_importance[0] 
+        : 'N/A',
+    });
+    
+    if (Array.isArray(activeModel.feature_importance) && activeModel.feature_importance.length > 0) {
+      featureImportance = [...activeModel.feature_importance]
+        .map((item: any) => {
+          // Manejar diferentes formatos de feature importance
+          // Formato 1: {feature: "risk_score", importance: 109.0} (XGBoost, Random Forest)
+          // Formato 2: {feature: "age", coefficient: 1.87, abs_coefficient: 1.87, odds_ratio: 6.51} (Logistic Regression)
+          let importanceValue: number = 0;
+          
+          if (item.importance !== null && item.importance !== undefined) {
+            // Formato estándar con 'importance'
+            importanceValue = typeof item.importance === 'number' 
+              ? item.importance 
+              : Number(item.importance) || 0;
+          } else if (item.abs_coefficient !== null && item.abs_coefficient !== undefined) {
+            // Formato Logistic Regression: usar abs_coefficient como importancia
+            importanceValue = typeof item.abs_coefficient === 'number'
+              ? item.abs_coefficient
+              : Number(item.abs_coefficient) || 0;
+          } else if (item.coefficient !== null && item.coefficient !== undefined) {
+            // Fallback: usar valor absoluto del coefficient
+            const coeff = typeof item.coefficient === 'number'
+              ? item.coefficient
+              : Number(item.coefficient) || 0;
+            importanceValue = Math.abs(coeff);
+          }
+          
+          return {
+            feature: String(item.feature || ''),
+            importance: importanceValue,
+          };
+        })
+        .filter(item => item.feature && item.importance > 0) // Filtrar solo items válidos
+        .sort((a, b) => b.importance - a.importance)
+        .slice(0, 25);
+      
+      console.log('Feature importance after processing:', {
+        count: featureImportance.length,
+        firstThree: featureImportance.slice(0, 3),
+      });
+    } else {
+      console.warn('Feature importance is not a valid array:', activeModel.feature_importance);
+    }
+  } else {
+    console.warn('No feature_importance in activeModel:', activeModel);
+  }
+
+  // Debug: log para verificar datos
+  console.log('Active Model:', activeModel?.name);
+  console.log('Feature Importance RAW:', activeModel?.feature_importance);
+  console.log('Feature Importance Processed:', featureImportance);
+  console.log('Confusion Matrix:', activeModel?.confusion_matrix);
 
   if (loading) {
     return (
@@ -378,19 +501,59 @@ export function Models() {
                       )}
                     </div>
 
+                    {/* Optimal Threshold */}
+                    {model.optimal_threshold !== undefined && model.optimal_threshold !== null && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 font-medium">Threshold Óptimo:</span>
+                          <span className="text-slate-900 font-semibold">
+                            {typeof model.optimal_threshold === 'number' 
+                              ? model.optimal_threshold.toFixed(3) 
+                              : String(model.optimal_threshold)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Hiperparámetros */}
                     {model.hyperparameters && Object.keys(model.hyperparameters).length > 0 && (
                       <div className="pt-3 border-t border-slate-100">
                         <p className="text-xs font-semibold text-slate-600 mb-2">Hiperparámetros</p>
                         <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {Object.entries(model.hyperparameters).slice(0, 5).map(([key, value]) => (
-                            <div key={key} className="flex justify-between text-xs">
-                              <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}:</span>
-                              <span className="text-slate-900 font-medium">
-                                {typeof value === 'number' ? value.toFixed(3) : String(value)}
-                              </span>
-                            </div>
-                          ))}
+                          {Object.entries(model.hyperparameters).slice(0, 5).map(([key, value]) => {
+                            // Formatear el valor según su tipo
+                            let displayValue: string;
+                            if (value === null || value === undefined) {
+                              displayValue = 'N/A';
+                            } else if (typeof value === 'number') {
+                              displayValue = value.toFixed(3);
+                            } else if (typeof value === 'boolean') {
+                              displayValue = value ? 'True' : 'False';
+                            } else if (Array.isArray(value)) {
+                              displayValue = `[${value.length} items]`;
+                            } else if (typeof value === 'object') {
+                              // Si es un objeto, intentar serializarlo de forma legible
+                              try {
+                                const objStr = JSON.stringify(value);
+                                if (objStr.length > 50) {
+                                  displayValue = '{...}';
+                                } else {
+                                  displayValue = objStr;
+                                }
+                              } catch {
+                                displayValue = '{object}';
+                              }
+                            } else {
+                              displayValue = String(value);
+                            }
+
+                            return (
+                              <div key={key} className="flex justify-between text-xs">
+                                <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                <span className="text-slate-900 font-medium">{displayValue}</span>
+                              </div>
+                            );
+                          })}
                           {Object.keys(model.hyperparameters).length > 5 && (
                             <p className="text-xs text-slate-400 italic">
                               +{Object.keys(model.hyperparameters).length - 5} más
@@ -522,7 +685,7 @@ export function Models() {
         </div>
 
         {/* Bottom Row: Feature Importance */}
-        {featureImportance.length > 0 && (
+        {activeModel && (
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -532,48 +695,163 @@ export function Models() {
               <CardHeader>
                 <CardTitle>Importancia de Características</CardTitle>
                 <CardDescription>
-                  Features más relevantes en la predicción del modelo activo
+                  Features más relevantes en la predicción del {activeModel.name}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={featureImportance} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis 
-                      type="number" 
-                      stroke="#64748b" 
-                      tick={{ fill: '#64748b', fontSize: 12 }}
-                      domain={[0, 'dataMax']}
-                    />
-                    <YAxis 
-                      dataKey="feature" 
-                      type="category" 
-                      stroke="#64748b" 
-                      width={150}
-                      tick={{ fill: '#64748b', fontSize: 11 }}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                      }}
-                      formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
-                    />
-                    <Bar 
-                      dataKey="importance" 
-                      fill="url(#featureGradient)" 
-                      radius={[0, 8, 8, 0]}
-                    />
-                    <defs>
-                      <linearGradient id="featureGradient" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#06b6d4" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
+                {featureImportance.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.max(300, featureImportance.length * 20)}>
+                    <BarChart data={featureImportance} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis 
+                        type="number" 
+                        stroke="#64748b" 
+                        tick={{ fill: '#64748b', fontSize: 12 }}
+                        domain={[0, 'dataMax']}
+                      />
+                      <YAxis 
+                        dataKey="feature" 
+                        type="category" 
+                        stroke="#64748b" 
+                        width={180}
+                        tick={{ fill: '#64748b', fontSize: 11 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        }}
+                        formatter={(value: number) => {
+                          // Los valores pueden venir como porcentajes (0-100) o como valores absolutos
+                          // Si el valor es > 1, asumimos que ya es un porcentaje o valor absoluto
+                          return value > 1 ? value.toFixed(2) : `${(value * 100).toFixed(2)}%`;
+                        }}
+                      />
+                      <Bar 
+                        dataKey="importance" 
+                        fill="url(#featureGradient)" 
+                        radius={[0, 8, 8, 0]}
+                      />
+                      <defs>
+                        <linearGradient id="featureGradient" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#8b5cf6" />
+                          <stop offset="100%" stopColor="#06b6d4" />
+                        </linearGradient>
+                      </defs>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="py-12 text-center">
+                    <p className="text-slate-500">No hay datos de importancia de características disponibles para este modelo</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.article>
+        )}
+
+        {/* Confusion Matrix */}
+        {activeModel?.confusion_matrix && (
+          <motion.article
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.7 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>Matriz de Confusión</CardTitle>
+                <CardDescription>
+                  Clasificación de predicciones del {activeModel.name}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Manejar ambos formatos: objeto o array 2D
+                  let tn = 0, fp = 0, fn = 0, tp = 0;
+                  
+                  console.log('Processing confusion matrix:', activeModel.confusion_matrix);
+                  
+                  if (Array.isArray(activeModel.confusion_matrix)) {
+                    // Formato: [[TN, FP], [FN, TP]]
+                    const matrix = activeModel.confusion_matrix as number[][];
+                    console.log('Matrix is array, length:', matrix.length);
+                    if (matrix.length >= 2 && Array.isArray(matrix[0]) && matrix[0].length >= 2) {
+                      tn = Number(matrix[0][0]) || 0;
+                      fp = Number(matrix[0][1]) || 0;
+                      fn = Number(matrix[1][0]) || 0;
+                      tp = Number(matrix[1][1]) || 0;
+                      console.log('Extracted values:', { tn, fp, fn, tp });
+                    } else {
+                      console.warn('Matrix format invalid:', matrix);
+                    }
+                  } else if (activeModel.confusion_matrix && typeof activeModel.confusion_matrix === 'object') {
+                    // Formato: { true_negative, false_positive, false_negative, true_positive }
+                    const cm = activeModel.confusion_matrix as {
+                      true_negative?: number;
+                      false_positive?: number;
+                      false_negative?: number;
+                      true_positive?: number;
+                    };
+                    tn = Number(cm.true_negative) || 0;
+                    fp = Number(cm.false_positive) || 0;
+                    fn = Number(cm.false_negative) || 0;
+                    tp = Number(cm.true_positive) || 0;
+                    console.log('Extracted from object:', { tn, fp, fn, tp });
+                  } else {
+                    console.warn('Unknown confusion matrix format:', activeModel.confusion_matrix);
+                  }
+
+                  return (
+                    <div className="flex flex-col items-center">
+                      <div className="grid grid-cols-3 gap-2 max-w-md">
+                        {/* Header */}
+                        <div></div>
+                        <div className="text-center text-sm font-semibold text-slate-700">Predicho: No Ictus</div>
+                        <div className="text-center text-sm font-semibold text-slate-700">Predicho: Ictus</div>
+                        
+                        {/* Row 1: Real No Ictus */}
+                        <div className="text-sm font-semibold text-slate-700 flex items-center">Real: No Ictus</div>
+                        <div className="p-4 rounded-lg bg-green-100 border-2 border-green-300 text-center">
+                          <div className="text-xs text-green-700 mb-1">Verdadero Negativo</div>
+                          <div className="text-2xl font-bold text-green-900">{tn}</div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-red-100 border-2 border-red-300 text-center">
+                          <div className="text-xs text-red-700 mb-1">Falso Positivo</div>
+                          <div className="text-2xl font-bold text-red-900">{fp}</div>
+                        </div>
+                        
+                        {/* Row 2: Real Ictus */}
+                        <div className="text-sm font-semibold text-slate-700 flex items-center">Real: Ictus</div>
+                        <div className="p-4 rounded-lg bg-orange-100 border-2 border-orange-300 text-center">
+                          <div className="text-xs text-orange-700 mb-1">Falso Negativo</div>
+                          <div className="text-2xl font-bold text-orange-900">{fn}</div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-blue-100 border-2 border-blue-300 text-center">
+                          <div className="text-xs text-blue-700 mb-1">Verdadero Positivo</div>
+                          <div className="text-2xl font-bold text-blue-900">{tp}</div>
+                        </div>
+                      </div>
+                      
+                      {/* Resumen */}
+                      <div className="mt-6 grid grid-cols-2 gap-4 text-sm">
+                        <div className="text-center">
+                          <p className="text-slate-600">Precisión</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {tp + fp > 0 ? ((tp / (tp + fp)) * 100).toFixed(1) : '0.0'}%
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-slate-600">Sensibilidad (Recall)</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {tp + fn > 0 ? ((tp / (tp + fn)) * 100).toFixed(1) : '0.0'}%
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           </motion.article>
