@@ -163,6 +163,7 @@ export function Models() {
               // Asegurar que estos campos se preserven explícitamente (por si acaso)
               feature_importance: detail?.feature_importance,
               confusion_matrix: detail?.confusion_matrix,
+              confusion_matrix_info: detail?.confusion_matrix_info,
               optimal_threshold: detail?.optimal_threshold,
             };
             
@@ -171,6 +172,7 @@ export function Models() {
               hasFeatureImportance: !!modelData.feature_importance,
               featureImportanceLength: modelData.feature_importance?.length || 0,
               hasConfusionMatrix: !!modelData.confusion_matrix,
+              hasConfusionMatrixInfo: !!modelData.confusion_matrix_info,
               hasOptimalThreshold: modelData.optimal_threshold !== undefined,
             });
             
@@ -816,7 +818,7 @@ export function Models() {
         )}
 
         {/* Confusion Matrix */}
-        {(selectedModel?.confusion_matrix_info || selectedModel?.confusion_matrix) && (
+        {selectedModel && (
           <motion.article
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -824,10 +826,41 @@ export function Models() {
           >
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle>Matriz de Confusión</CardTitle>
-                <CardDescription>
-                  Clasificación de predicciones del {selectedModel.name}
-                </CardDescription>
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <CardTitle>Matriz de Confusión</CardTitle>
+                    <CardDescription>
+                      Clasificación de predicciones del modelo seleccionado
+                    </CardDescription>
+                  </div>
+                  <Select
+                    value={selectedModelName || ''}
+                    onValueChange={(value) => setSelectedModelName(value)}
+                  >
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Seleccionar modelo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {models.map((model) => (
+                        <SelectItem key={model.name} value={model.name}>
+                          <div className="flex items-center gap-2">
+                            <span>{model.name}</span>
+                            {model.isActive && (
+                              <Badge variant="outline" className="text-xs">
+                                Activo
+                              </Badge>
+                            )}
+                            {!model.confusion_matrix && !model.confusion_matrix_info && (
+                              <Badge variant="outline" className="text-xs text-slate-400">
+                                Sin matriz
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </CardHeader>
               <CardContent>
                 {(() => {
@@ -871,12 +904,20 @@ export function Models() {
                     return { predicted: ['No Ictus', 'Ictus'], actual: ['No Ictus', 'Ictus'] };
                   };
 
-                  // Usar nuevo formato si está disponible y tiene values válidos
-                  if (matrixInfo && matrixInfo.values && Array.isArray(matrixInfo.values) && matrixInfo.values.length > 0) {
-                    values = matrixInfo.values;
+                  // Usar nuevo formato si está disponible y tiene matrix/values válidos
+                  // El backend puede usar 'matrix' o 'values' (soporte para ambos)
+                  const matrixData = matrixInfo?.matrix || matrixInfo?.values;
+                  if (matrixInfo && matrixData && Array.isArray(matrixData) && matrixData.length > 0) {
+                    values = matrixData;
                     labels = normalizeLabels(matrixInfo.labels);
-                    metrics = matrixInfo.metrics || {};
-                    console.log('Using confusion_matrix_info:', { values, labels, metrics });
+                    // Usar métricas de confusion_matrix_info si están disponibles
+                    if (matrixInfo.accuracy !== undefined) {
+                      metrics.accuracy = matrixInfo.accuracy;
+                    }
+                    if (matrixInfo.metrics) {
+                      metrics = { ...metrics, ...matrixInfo.metrics };
+                    }
+                    console.log('Using confusion_matrix_info:', { values, labels, metrics, matrixInfo });
                   } else if (legacyMatrix) {
                     // Procesar formato legacy (fallback si confusion_matrix_info no tiene values)
                     if (Array.isArray(legacyMatrix)) {
@@ -907,8 +948,17 @@ export function Models() {
                   // Validar que values sea un array válido con datos
                   if (!values || !Array.isArray(values) || values.length === 0 || !Array.isArray(values[0]) || values[0].length === 0) {
                     return (
-                      <div className="py-8 text-center text-slate-500">
-                        <p>No hay datos de matriz de confusión disponibles</p>
+                      <div className="py-12 text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+                          <AlertCircle className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <p className="text-slate-600 font-medium mb-2">No hay datos de matriz de confusión disponibles</p>
+                        <p className="text-sm text-slate-500">
+                          El modelo <span className="font-semibold">{selectedModel.name}</span> no tiene matriz de confusión en el backend.
+                        </p>
+                        <p className="text-xs text-slate-400 mt-2">
+                          Verifica que el endpoint <code className="bg-slate-100 px-1 rounded">/models/{'{model_name}'}</code> devuelva <code className="bg-slate-100 px-1 rounded">confusion_matrix</code> o <code className="bg-slate-100 px-1 rounded">confusion_matrix_info</code>
+                        </p>
                       </div>
                     );
                   }

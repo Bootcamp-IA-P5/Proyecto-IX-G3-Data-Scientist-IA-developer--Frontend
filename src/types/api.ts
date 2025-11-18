@@ -96,12 +96,20 @@ export interface ModelDetailResponse {
     true_positive?: number;
   } | number[][];
   confusion_matrix_info?: {
-    labels: {
-      predicted: string[];
-      actual: string[];
+    matrix?: number[][];
+    values?: number[][]; // Legacy support
+    labels?: string[] | {
+      predicted?: string[];
+      actual?: string[];
     };
-    values: number[][];
-    metrics: {
+    true_negative?: number;
+    false_positive?: number;
+    false_negative?: number;
+    true_positive?: number;
+    total?: number;
+    accuracy?: number;
+    error_rate?: number;
+    metrics?: {
       accuracy?: number;
       precision?: number;
       recall?: number;
