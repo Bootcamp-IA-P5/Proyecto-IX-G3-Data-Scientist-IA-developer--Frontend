@@ -65,10 +65,26 @@ export function Models() {
           modelNames.map(async (modelName) => {
             let detail: ModelDetailResponse | null = null;
             try {
+              // Intentar cargar detalles, pero si falla (CORS u otro error), continuamos sin detalles
               detail = await strokeApi.getModelDetail(modelName);
               console.log(`Detalles cargados para ${modelName}:`, detail);
-            } catch (error) {
-              console.warn(`No se pudieron cargar detalles de ${modelName}:`, error);
+            } catch (error: any) {
+              // Silenciar errores de CORS, Network Error, o errores 500/404/400
+              // Si el backend está funcionando correctamente, estos errores no deberían aparecer
+              const isSilentError = 
+                error.message?.includes('CORS') || 
+                error.message?.includes('Network Error') ||
+                error.status === 500 ||
+                error.status === 404 ||
+                error.status === 400;
+              
+              // Solo loguear si no es un error silencioso esperado
+              if (!isSilentError) {
+                console.warn(`No se pudieron cargar detalles de ${modelName}:`, error);
+              } else {
+                // Log informativo en desarrollo
+                console.debug(`Detalles no disponibles para ${modelName} (error silenciado)`);
+              }
             }
             
             const isActive = statusResponse.available_models.includes(modelName);
@@ -92,11 +108,15 @@ export function Models() {
             }
 
             // Asegurar que siempre tengamos un nombre, incluso sin detalles
-            const displayName = detail?.name || modelName.replace('.pkl', '').replace('_', ' ');
+            // Si el backend devuelve un nombre, usarlo; si no, limpiar el nombre del archivo
+            const displayName = detail?.name 
+              ? detail.name.replace('.pkl', '').replace(/_/g, ' ')
+              : modelName.replace('.pkl', '').replace(/_/g, ' ');
 
             return {
               ...(detail || {}),
               name: displayName,
+              type: detail?.type || detail?.model_type || 'Machine Learning',
               isActive,
               icon,
               gradient,
@@ -133,13 +153,18 @@ export function Models() {
     fetchModels();
   }, []);
 
+  // Helper para normalizar métricas (convertir 0-1 a 0-100 si es necesario)
+  const normalizeMetric = (value: number): number => {
+    return value > 1 ? value : value * 100;
+  };
+
   // Preparar datos para comparación de todas las métricas
   const comparisonData = [
     {
       metric: 'Accuracy',
       ...models.reduce((acc, model) => {
         if (model.metrics?.accuracy !== undefined) {
-          acc[model.name || 'Unknown'] = model.metrics.accuracy;
+          acc[model.name || 'Unknown'] = normalizeMetric(model.metrics.accuracy);
         }
         return acc;
       }, {} as Record<string, number>),
@@ -148,7 +173,7 @@ export function Models() {
       metric: 'Precision',
       ...models.reduce((acc, model) => {
         if (model.metrics?.precision !== undefined) {
-          acc[model.name || 'Unknown'] = model.metrics.precision;
+          acc[model.name || 'Unknown'] = normalizeMetric(model.metrics.precision);
         }
         return acc;
       }, {} as Record<string, number>),
@@ -157,7 +182,7 @@ export function Models() {
       metric: 'Recall',
       ...models.reduce((acc, model) => {
         if (model.metrics?.recall !== undefined) {
-          acc[model.name || 'Unknown'] = model.metrics.recall;
+          acc[model.name || 'Unknown'] = normalizeMetric(model.metrics.recall);
         }
         return acc;
       }, {} as Record<string, number>),
@@ -166,7 +191,7 @@ export function Models() {
       metric: 'F1-Score',
       ...models.reduce((acc, model) => {
         if (model.metrics?.f1_score !== undefined) {
-          acc[model.name || 'Unknown'] = model.metrics.f1_score;
+          acc[model.name || 'Unknown'] = normalizeMetric(model.metrics.f1_score);
         }
         return acc;
       }, {} as Record<string, number>),
@@ -175,7 +200,7 @@ export function Models() {
       metric: 'AUC-ROC',
       ...models.reduce((acc, model) => {
         if (model.metrics?.auc_roc !== undefined) {
-          acc[model.name || 'Unknown'] = model.metrics.auc_roc;
+          acc[model.name || 'Unknown'] = normalizeMetric(model.metrics.auc_roc);
         }
         return acc;
       }, {} as Record<string, number>),
@@ -186,11 +211,11 @@ export function Models() {
   const activeModel = models.find((m) => m.isActive) || models[0];
   const radarData = activeModel?.metrics
     ? [
-        { metric: 'Accuracy', value: activeModel.metrics.accuracy || 0 },
-        { metric: 'Precision', value: activeModel.metrics.precision || 0 },
-        { metric: 'Recall', value: activeModel.metrics.recall || 0 },
-        { metric: 'F1-Score', value: activeModel.metrics.f1_score || 0 },
-        { metric: 'AUC-ROC', value: activeModel.metrics.auc_roc || 0 },
+        { metric: 'Accuracy', value: normalizeMetric(activeModel.metrics.accuracy || 0) },
+        { metric: 'Precision', value: normalizeMetric(activeModel.metrics.precision || 0) },
+        { metric: 'Recall', value: normalizeMetric(activeModel.metrics.recall || 0) },
+        { metric: 'F1-Score', value: normalizeMetric(activeModel.metrics.f1_score || 0) },
+        { metric: 'AUC-ROC', value: normalizeMetric(activeModel.metrics.auc_roc || 0) },
       ]
     : [];
 
@@ -308,10 +333,13 @@ export function Models() {
                         <div className="flex justify-between text-sm">
                           <span className="text-slate-600 font-medium">Accuracy</span>
                           <span className="text-slate-900 font-bold text-lg">
-                            {model.metrics.accuracy.toFixed(1)}%
+                            {(model.metrics.accuracy > 1 ? model.metrics.accuracy : model.metrics.accuracy * 100).toFixed(1)}%
                           </span>
                         </div>
-                        <Progress value={model.metrics.accuracy} className="h-2" />
+                        <Progress 
+                          value={model.metrics.accuracy > 1 ? model.metrics.accuracy : model.metrics.accuracy * 100} 
+                          className="h-2" 
+                        />
                       </div>
                     )}
                     
@@ -320,7 +348,7 @@ export function Models() {
                         <div className="space-y-1">
                           <p className="text-xs text-slate-500">Precision</p>
                           <p className="text-sm font-semibold text-slate-900">
-                            {model.metrics.precision.toFixed(1)}%
+                            {(model.metrics.precision > 1 ? model.metrics.precision : model.metrics.precision * 100).toFixed(1)}%
                           </p>
                         </div>
                       )}
@@ -328,7 +356,7 @@ export function Models() {
                         <div className="space-y-1">
                           <p className="text-xs text-slate-500">Recall</p>
                           <p className="text-sm font-semibold text-slate-900">
-                            {model.metrics.recall.toFixed(1)}%
+                            {(model.metrics.recall > 1 ? model.metrics.recall : model.metrics.recall * 100).toFixed(1)}%
                           </p>
                         </div>
                       )}
@@ -336,7 +364,7 @@ export function Models() {
                         <div className="space-y-1">
                           <p className="text-xs text-slate-500">F1-Score</p>
                           <p className="text-sm font-semibold text-slate-900">
-                            {model.metrics.f1_score.toFixed(1)}%
+                            {(model.metrics.f1_score > 1 ? model.metrics.f1_score : model.metrics.f1_score * 100).toFixed(1)}%
                           </p>
                         </div>
                       )}
@@ -344,11 +372,33 @@ export function Models() {
                         <div className="space-y-1">
                           <p className="text-xs text-slate-500">AUC-ROC</p>
                           <p className="text-sm font-semibold text-slate-900">
-                            {model.metrics.auc_roc.toFixed(1)}%
+                            {(model.metrics.auc_roc > 1 ? model.metrics.auc_roc : model.metrics.auc_roc * 100).toFixed(1)}%
                           </p>
                         </div>
                       )}
                     </div>
+
+                    {/* Hiperparámetros */}
+                    {model.hyperparameters && Object.keys(model.hyperparameters).length > 0 && (
+                      <div className="pt-3 border-t border-slate-100">
+                        <p className="text-xs font-semibold text-slate-600 mb-2">Hiperparámetros</p>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {Object.entries(model.hyperparameters).slice(0, 5).map(([key, value]) => (
+                            <div key={key} className="flex justify-between text-xs">
+                              <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                              <span className="text-slate-900 font-medium">
+                                {typeof value === 'number' ? value.toFixed(3) : String(value)}
+                              </span>
+                            </div>
+                          ))}
+                          {Object.keys(model.hyperparameters).length > 5 && (
+                            <p className="text-xs text-slate-400 italic">
+                              +{Object.keys(model.hyperparameters).length - 5} más
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="py-4 text-center">

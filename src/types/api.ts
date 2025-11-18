@@ -72,6 +72,7 @@ export interface ModelDetailResponse {
   name: string;
   version?: string;
   type?: string;
+  model_type?: string;
   metrics?: {
     accuracy?: number;
     precision?: number;
@@ -79,6 +80,7 @@ export interface ModelDetailResponse {
     f1_score?: number;
     auc_roc?: number;
   };
+  hyperparameters?: Record<string, any>;
   feature_importance?: Array<{
     feature: string;
     importance: number;
@@ -116,5 +118,55 @@ export interface ModelsCompareResponse {
     f1_score: number;
     auc_roc: number;
   }>;
+}
+
+// Control Center Response
+export interface ControlCenterComponent {
+  name: string;
+  status: 'operational' | 'warning' | 'error';
+  percentage: number;
+  message: string;
+  details?: {
+    models_loaded?: number;
+    total_models?: number;
+    total_mb?: number;
+    models_mb?: number;
+  };
+}
+
+export interface ModelHealth {
+  model_name: string;
+  is_loaded: boolean;
+  is_available: boolean;
+  file_size_mb: number | null;
+  status: string;
+  metrics_available: boolean;
+}
+
+export interface ControlCenterConfiguration {
+  environment: string;
+  debug: boolean;
+  host: string;
+  port: number;
+  api_version: string;
+  models_directory: string;
+  data_directory: string;
+}
+
+export interface ControlCenterResponse {
+  api_status: string;
+  environment: string;
+  version: string;
+  components: ControlCenterComponent[];
+  total_models: number;
+  models_loaded: number;
+  models_health: ModelHealth[];
+  total_storage_mb: number;
+  models_storage_mb: number;
+  total_predictions: number;
+  average_response_time_ms: number | null;
+  alerts: string[];
+  warnings: string[];
+  configuration: ControlCenterConfiguration;
 }
 

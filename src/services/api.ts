@@ -12,6 +12,7 @@ import type {
   StatsOverviewResponse,
   RiskDistributionResponse,
   ModelsCompareResponse,
+  ControlCenterResponse,
   ApiError,
 } from '../types/api';
 
@@ -84,7 +85,9 @@ export const strokeApi = {
 
   // Get Model Detail
   getModelDetail: async (modelName: string): Promise<ModelDetailResponse> => {
-    const response = await apiClient.get<ModelDetailResponse>(`/models/${modelName}`);
+    // Codificar el nombre del modelo para la URL (por si tiene caracteres especiales)
+    const encodedModelName = encodeURIComponent(modelName);
+    const response = await apiClient.get<ModelDetailResponse>(`/models/${encodedModelName}`);
     return response.data;
   },
 
@@ -103,6 +106,12 @@ export const strokeApi = {
   // Models Compare
   getModelsCompare: async (): Promise<ModelsCompareResponse> => {
     const response = await apiClient.get<ModelsCompareResponse>('/stats/models/compare');
+    return response.data;
+  },
+
+  // Control Center
+  getControlCenter: async (): Promise<ControlCenterResponse> => {
+    const response = await apiClient.get<ControlCenterResponse>('/control-center');
     return response.data;
   },
 };
