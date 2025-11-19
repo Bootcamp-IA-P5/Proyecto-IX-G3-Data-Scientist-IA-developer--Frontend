@@ -79,6 +79,9 @@ export function Models() {
           'logistic_regression',
           'logisticregression',
           'xgboost',
+          'xgb', // Variante corta de XGBoost
+          'gradient_boost', // XGBoost también puede llamarse así
+          'gradientboost',
         ];
         
         const filteredModelNames = modelNames.filter(modelName => {
@@ -97,6 +100,8 @@ export function Models() {
           
           if (!isAllowed) {
             console.log(`Modelo excluido (no está en la lista permitida): ${modelName}`);
+          } else {
+            console.log(`Modelo incluido: ${modelName}`);
           }
           
           return isAllowed;
