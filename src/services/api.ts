@@ -17,12 +17,13 @@ import type {
 } from '../types/api';
 
 // Crear instancia de axios con configuración base
+// Timeout aumentado a 30s para dar tiempo al backend de Render (free tier) a "despertar"
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000, // 30 segundos para dar tiempo al backend de Render a responder
 });
 
 // Log para debugging (solo en desarrollo)
@@ -36,8 +37,16 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
+    // Mejorar mensajes de error para timeouts
+    let errorMessage = error.message || 'An error occurred';
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      errorMessage = 'El servidor está tardando en responder. Esto puede ocurrir si el backend está "durmiendo" (plan gratuito de Render). Por favor, espera unos segundos e intenta de nuevo.';
+    } else if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+      errorMessage = 'Error de conexión. Verifica que el backend esté ejecutándose y accesible.';
+    }
+    
     const apiError: ApiError = {
-      message: error.message || 'An error occurred',
+      message: errorMessage,
       status: error.response?.status || 500,
       errors: error.response?.data as Record<string, string[]> | undefined,
     };

@@ -27,10 +27,12 @@ export default function Home() {
         // Usamos el nuevo endpoint que trae toda la información
         const data = await strokeApi.getControlCenter();
         setControlCenter(data);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error al cargar datos del centro de control:', error);
+        const errorMessage = error?.message || 'Error desconocido';
         toast.error('Error al conectar con el backend', {
-          description: 'Verifica que el servidor esté ejecutándose',
+          description: errorMessage,
+          duration: errorMessage.includes('tardando') ? 8000 : 5000,
         });
       }
     };

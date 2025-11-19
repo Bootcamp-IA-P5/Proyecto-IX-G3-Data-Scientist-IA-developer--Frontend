@@ -192,19 +192,27 @@ export function Models() {
       } catch (error: any) {
         console.error('Error al cargar modelos:', error);
         
+        const errorMessage = error?.message || 'Error desconocido';
+        const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('tardando');
         const isCorsError = 
-          error.message?.includes('CORS') || 
-          error.message?.includes('Network Error') ||
-          error.status === 500 && !error.response;
+          errorMessage?.includes('CORS') || 
+          (errorMessage?.includes('Network Error') && !isTimeout) ||
+          (error.status === 500 && !error.response && !isTimeout);
         
-        if (isCorsError) {
+        if (isTimeout) {
+          toast.error('El servidor está tardando en responder', {
+            description: errorMessage,
+            duration: 8000,
+          });
+        } else if (isCorsError) {
           toast.error('Error de CORS', {
             description: 'El backend no permite peticiones desde este puerto. Configura CORS en el backend para permitir localhost:5174 o usa el puerto 5173',
             duration: 6000,
           });
         } else {
           toast.error('Error al cargar los modelos', {
-            description: 'Verifica que el servidor esté ejecutándose',
+            description: errorMessage,
+            duration: 5000,
           });
         }
         setModels([]);
