@@ -11,7 +11,7 @@ const hasCustomApiUrl = !!customApiUrl;
 export const API_URL: string = (() => {
   if (isProduction) {
     // En producción, usar VITE_API_URL o la URL por defecto
-    return customApiUrl || 'https://proyecto-ix-g3-data-scientist-ia-78z0.onrender.com';
+    return customApiUrl || 'https://proyecto-ix-g3-data-scientist-ia-586b.onrender.com';
   } else {
     // En desarrollo, si hay VITE_API_URL, usar el proxy para evitar CORS
     // El proxy está configurado en vite.config.ts para redirigir /api a VITE_API_URL

@@ -961,7 +961,7 @@ export function Models() {
                     confusionMatrixInfoKeys: selectedModel.confusion_matrix_info ? Object.keys(selectedModel.confusion_matrix_info) : [],
                   });
                   
-                  // Priorizar confusion_matrix_info (nuevo formato), fallback a confusion_matrix (legacy)
+             // Priorizar confusion_matrix_info (nuevo formato), fallback a confusion_matrix (legacy)
                   const matrixInfo = selectedModel.confusion_matrix_info;
                   const legacyMatrix = selectedModel.confusion_matrix;
                   
@@ -1015,6 +1015,26 @@ export function Models() {
                       metrics = { ...metrics, ...matrixInfo.metrics };
                     }
                     console.log('Using confusion_matrix_info:', { values, labels, metrics, matrixInfo });
+                  } else if (matrixInfo && (matrixInfo.true_negative !== undefined || matrixInfo.true_positive !== undefined || matrixInfo.false_positive !== undefined || matrixInfo.false_negative !== undefined)) {
+                    // Caso especial: confusion_matrix_info tiene los valores directamente en sus propiedades
+                    // (formato usado por Random Forest y XGBoost)
+                    const tn = Number(matrixInfo.true_negative) || 0;
+                    const fp = Number(matrixInfo.false_positive) || 0;
+                    const fn = Number(matrixInfo.false_negative) || 0;
+                    const tp = Number(matrixInfo.true_positive) || 0;
+                    values = [
+                      [tn, fp],
+                      [fn, tp],
+                    ];
+                    labels = normalizeLabels(matrixInfo.labels);
+                    // Usar métricas de confusion_matrix_info si están disponibles
+                    if (matrixInfo.accuracy !== undefined) {
+                      metrics.accuracy = matrixInfo.accuracy;
+                    }
+                    if (matrixInfo.metrics) {
+                      metrics = { ...metrics, ...matrixInfo.metrics };
+                    }
+                    console.log('Using confusion_matrix_info (direct properties):', { values, labels, metrics, matrixInfo });
                   } else if (legacyMatrix) {
                     // Procesar formato legacy (fallback si confusion_matrix_info no tiene values)
                     if (Array.isArray(legacyMatrix)) {

@@ -7,6 +7,6 @@ services:
     envVars:
       - key: VITE_API_URL
         sync: false
-        value: https://proyecto-ix-g3-data-scientist-ia-78z0.onrender.com
+        value: https://proyecto-ix-g3-data-scientist-ia-586b.onrender.com
     staticPublishPath: ./dist
     healthCheckPath: /
