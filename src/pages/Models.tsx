@@ -49,17 +49,17 @@ export function Models() {
         setLoading(true);
         
         const statusResponse = await strokeApi.getStatus();
-        console.log('Status response:', statusResponse);
+      
         
         let modelNames: string[] = [];
         try {
           const modelsResponse = await strokeApi.getModels();
           modelNames = modelsResponse.models || [];
-          console.log('Models from /models endpoint:', modelNames);
+         
         } catch (error) {
           console.warn('Endpoint /models no disponible, usando /status como fallback');
           modelNames = statusResponse.available_models || [];
-          console.log('Models from /status fallback:', modelNames);
+          
         }
 
         if (modelNames.length === 0) {
@@ -69,98 +69,56 @@ export function Models() {
           return;
         }
 
-        console.log(`Cargando detalles para ${modelNames.length} modelos:`, modelNames);
-
-        // Filtrar para mostrar solo los modelos deseados
-        // Random Forest, Logistic Regression, y XGBoost (incluyendo xgboost_model_no_smote.pkl)
+       
         const allowedModels = [
           'random_forest',
           'randomforest',
           'logistic_regression',
           'logisticregression',
           'xgboost',
-          'xgb', // Variante corta de XGBoost
-          'gradient_boost', // XGBoost también puede llamarse así
+          'xgb', 
+          'gradient_boost', 
           'gradientboost',
         ];
         
         const filteredModelNames = modelNames.filter(modelName => {
           const modelNameLower = modelName.toLowerCase();
           
-          // Excluir Random Forest con "no_smote" (es lo mismo que el otro)
+         
           if ((modelNameLower.includes('random') || modelNameLower.includes('forest')) && modelNameLower.includes('no_smote')) {
-            console.log(`Modelo excluido (Random Forest no_smote): ${modelName}`);
+            
             return false;
           }
           
-          // Excluir modelos con "smote" PERO incluir los que tienen "no_smote" (excepto Random Forest que ya excluimos arriba)
+        
           if (modelNameLower.includes('smote') && !modelNameLower.includes('no_smote')) {
-            console.log(`Modelo excluido (contiene SMOTE pero no es no_smote): ${modelName}`);
+         
             return false;
           }
           
-          // Incluir solo modelos que coincidan con los permitidos
+        
           const isAllowed = allowedModels.some(allowed => 
             modelNameLower.includes(allowed)
           );
           
           if (!isAllowed) {
-            console.log(`Modelo excluido (no está en la lista permitida): ${modelName}`);
-          } else {
-            console.log(`Modelo incluido: ${modelName}`);
+       
           }
           
           return isAllowed;
         });
 
-        console.log(`Modelos después del filtro: ${filteredModelNames.length} de ${modelNames.length}`);
+       
 
         const modelsWithDetails = await Promise.all(
           filteredModelNames.map(async (modelName) => {
             let detail: ModelDetailResponse | null = null;
             try {
-              // Intentar cargar detalles, pero si falla (CORS u otro error), continuamos sin detalles
+              
               detail = await strokeApi.getModelDetail(modelName);
-              console.log(`Detalles cargados para ${modelName}:`, detail);
-              // Debug: verificar hiperparámetros
-              if (detail?.hyperparameters) {
-                console.log(`Hiperparámetros para ${modelName}:`, detail.hyperparameters);
-                console.log(`Número de hiperparámetros: ${Object.keys(detail.hyperparameters).length}`);
-              } else {
-                console.log(`No hay hiperparámetros para ${modelName}`);
-              }
-              // Debug: verificar feature importance
-              if (detail?.feature_importance) {
-                console.log(`Feature Importance RAW para ${modelName}:`, detail.feature_importance);
-                console.log(`Primeros 3 items:`, detail.feature_importance.slice(0, 3));
-                console.log(`Tipos de datos:`, detail.feature_importance.map((item: any) => ({
-                  feature: item.feature,
-                  importance: item.importance,
-                  type: typeof item.importance,
-                  isNull: item.importance === null,
-                  isUndefined: item.importance === undefined,
-                })).slice(0, 3));
-              } else {
-                console.log(`No hay feature_importance para ${modelName}`);
-              }
-              // Debug: verificar confusion matrix
-              if (detail?.confusion_matrix) {
-                console.log(`Confusion Matrix RAW para ${modelName}:`, detail.confusion_matrix);
-                console.log(`Tipo:`, Array.isArray(detail.confusion_matrix) ? 'Array' : 'Object');
-              } else {
-                console.log(`No hay confusion_matrix para ${modelName}`);
-              }
-              // Debug: verificar confusion_matrix_info
-              if (detail?.confusion_matrix_info) {
-                console.log(`Confusion Matrix Info RAW para ${modelName}:`, detail.confusion_matrix_info);
-                console.log(`Tiene matrix:`, !!detail.confusion_matrix_info.matrix);
-                console.log(`Tiene values:`, !!detail.confusion_matrix_info.values);
-              } else {
-                console.log(`No hay confusion_matrix_info para ${modelName}`);
-              }
+            
             } catch (error: any) {
-              // Silenciar errores de CORS, Network Error, o errores 500/404/400
-              // Si el backend está funcionando correctamente, estos errores no deberían aparecer
+              
               const isSilentError = 
                 error.message?.includes('CORS') || 
                 error.message?.includes('Network Error') ||
@@ -168,12 +126,9 @@ export function Models() {
                 error.status === 404 ||
                 error.status === 400;
               
-              // Solo loguear si no es un error silencioso esperado
+           
               if (!isSilentError) {
                 console.warn(`No se pudieron cargar detalles de ${modelName}:`, error);
-              } else {
-                // Log informativo en desarrollo
-                console.debug(`Detalles no disponibles para ${modelName} (error silenciado)`);
               }
             }
             
@@ -197,24 +152,21 @@ export function Models() {
               gradient = 'from-emerald-500 to-teal-500';
             }
 
-            // Asegurar que siempre tengamos un nombre, incluso sin detalles
-            // Si el backend devuelve un nombre, usarlo; si no, limpiar el nombre del archivo
+          
             const displayName = detail?.name 
               ? detail.name.replace('.pkl', '').replace(/_/g, ' ')
               : modelName.replace('.pkl', '').replace(/_/g, ' ');
 
-            // Construir el objeto del modelo preservando TODOS los datos del backend
-            // Hacer spread primero, luego sobrescribir solo lo necesario
+            
             const modelData: ModelWithDetails = {
-              // Primero hacer spread de detail para preservar TODOS los campos del backend
+           
               ...(detail || {}),
-              // Luego sobrescribir solo los campos que necesitamos transformar
+          
               name: displayName,
               type: detail?.type || detail?.model_type || 'Machine Learning',
               isActive,
               icon,
               gradient,
-              // Asegurar que estos campos se preserven explícitamente (por si acaso)
               feature_importance: detail?.feature_importance,
               confusion_matrix: detail?.confusion_matrix,
               confusion_matrix_info: detail?.confusion_matrix_info,
@@ -223,33 +175,16 @@ export function Models() {
               precision_recall_curve: detail?.precision_recall_curve,
             };
             
-            console.log(`Modelo procesado ${modelName}:`, {
-              name: modelData.name,
-              hasFeatureImportance: !!modelData.feature_importance,
-              featureImportanceLength: modelData.feature_importance?.length || 0,
-              hasConfusionMatrix: !!modelData.confusion_matrix,
-              hasConfusionMatrixInfo: !!modelData.confusion_matrix_info,
-              confusionMatrixInfoMatrix: !!modelData.confusion_matrix_info?.matrix,
-              confusionMatrixInfoValues: !!modelData.confusion_matrix_info?.values,
-              hasOptimalThreshold: modelData.optimal_threshold !== undefined,
-              hasRocCurve: !!modelData.roc_curve,
-              hasPrecisionRecallCurve: !!modelData.precision_recall_curve,
-              confusionMatrixRaw: modelData.confusion_matrix,
-              confusionMatrixInfoRaw: modelData.confusion_matrix_info,
-            });
-            
             return modelData;
           })
         );
 
-        console.log('Modelos finales cargados:', modelsWithDetails);
         setModels(modelsWithDetails);
-        // Establecer el modelo seleccionado por defecto (el activo o el primero)
+        
         if (modelsWithDetails.length > 0) {
           const defaultModel = modelsWithDetails.find(m => m.isActive) || modelsWithDetails[0];
           if (defaultModel && defaultModel.name) {
             setSelectedModelName(defaultModel.name);
-            console.log('Modelo seleccionado por defecto:', defaultModel.name);
           } else {
             console.warn('No se pudo establecer el modelo por defecto:', defaultModel);
           }
@@ -292,12 +227,12 @@ export function Models() {
     fetchModels();
   }, []);
 
-  // Helper para normalizar métricas (convertir 0-1 a 0-100 si es necesario)
+  
   const normalizeMetric = (value: number): number => {
     return value > 1 ? value : value * 100;
   };
 
-  // Preparar datos para comparación de todas las métricas
+ 
   const comparisonData = [
     {
       metric: 'Accuracy',
@@ -346,28 +281,11 @@ export function Models() {
     },
   ];
 
-  // Obtener el modelo seleccionado (o el activo por defecto)
+  
   const selectedModel = selectedModelName 
     ? models.find((m) => m.name === selectedModelName) 
     : models.find((m) => m.isActive) || models[0];
   
-  // Si no hay modelo seleccionado, no procesar datos
-  if (!selectedModel) {
-    console.warn('No hay modelo seleccionado disponible');
-  }
-  
-  // Debug: verificar qué modelo está seleccionado y qué datos tiene (solo si existe)
-  if (selectedModel) {
-    console.log('=== DEBUG SELECTED MODEL ===');
-    console.log('Modelo seleccionado:', selectedModelName);
-    console.log('Selected Model objeto:', selectedModel.name);
-    console.log('Selected Model feature_importance existe:', !!selectedModel.feature_importance);
-    console.log('Selected Model feature_importance es array:', Array.isArray(selectedModel.feature_importance));
-    if (selectedModel.feature_importance) {
-      console.log('Selected Model feature_importance length:', selectedModel.feature_importance.length);
-    }
-    console.log('========================');
-  }
   
   const radarData = selectedModel?.metrics
     ? [
@@ -379,38 +297,28 @@ export function Models() {
       ]
     : [];
 
-  // Procesar feature importance: ordenar por importancia y tomar top 25
+  
   let featureImportance: Array<{ feature: string; importance: number }> = [];
   
   if (selectedModel?.feature_importance) {
-    console.log('Processing feature importance from selectedModel:', {
-      isArray: Array.isArray(selectedModel.feature_importance),
-      length: Array.isArray(selectedModel.feature_importance) ? selectedModel.feature_importance.length : 'N/A',
-      firstItem: Array.isArray(selectedModel.feature_importance) && selectedModel.feature_importance.length > 0 
-        ? selectedModel.feature_importance[0] 
-        : 'N/A',
-    });
-    
     if (Array.isArray(selectedModel.feature_importance) && selectedModel.feature_importance.length > 0) {
       featureImportance = [...selectedModel.feature_importance]
         .map((item: any) => {
-          // Manejar diferentes formatos de feature importance
-          // Formato 1: {feature: "risk_score", importance: 109.0} (XGBoost, Random Forest)
-          // Formato 2: {feature: "age", coefficient: 1.87, abs_coefficient: 1.87, odds_ratio: 6.51} (Logistic Regression)
+         
           let importanceValue: number = 0;
           
           if (item.importance !== null && item.importance !== undefined) {
-            // Formato estándar con 'importance'
+          
             importanceValue = typeof item.importance === 'number' 
               ? item.importance 
               : Number(item.importance) || 0;
           } else if (item.abs_coefficient !== null && item.abs_coefficient !== undefined) {
-            // Formato Logistic Regression: usar abs_coefficient como importancia
+          
             importanceValue = typeof item.abs_coefficient === 'number'
               ? item.abs_coefficient
               : Number(item.abs_coefficient) || 0;
           } else if (item.coefficient !== null && item.coefficient !== undefined) {
-            // Fallback: usar valor absoluto del coefficient
+          
             const coeff = typeof item.coefficient === 'number'
               ? item.coefficient
               : Number(item.coefficient) || 0;
@@ -422,28 +330,12 @@ export function Models() {
             importance: importanceValue,
           };
         })
-        .filter(item => item.feature && item.importance > 0) // Filtrar solo items válidos
+        .filter(item => item.feature && item.importance > 0) 
         .sort((a, b) => b.importance - a.importance)
         .slice(0, 25);
-      
-      console.log('Feature importance after processing:', {
-        count: featureImportance.length,
-        firstThree: featureImportance.slice(0, 3),
-      });
     } else {
       console.warn('Feature importance is not a valid array:', selectedModel.feature_importance);
     }
-  } else if (selectedModel) {
-    // Solo mostrar warning si hay un modelo seleccionado pero sin feature_importance
-    console.warn('No feature_importance in selectedModel:', selectedModel.name);
-  }
-
-  // Debug: log para verificar datos (solo si hay modelo seleccionado)
-  if (selectedModel) {
-    console.log('Selected Model:', selectedModel.name);
-    console.log('Feature Importance RAW:', selectedModel.feature_importance);
-    console.log('Feature Importance Processed:', featureImportance);
-    console.log('Confusion Matrix:', selectedModel.confusion_matrix);
   }
 
   if (loading) {
@@ -623,7 +515,7 @@ export function Models() {
                         <p className="text-xs font-semibold text-slate-600 mb-2">Hiperparámetros</p>
                         <div className="space-y-1 max-h-32 overflow-y-auto">
                           {Object.entries(model.hyperparameters).slice(0, 5).map(([key, value]) => {
-                            // Formatear el valor según su tipo
+                           
                             let displayValue: string;
                             if (value === null || value === undefined) {
                               displayValue = 'N/A';
@@ -634,7 +526,7 @@ export function Models() {
                             } else if (Array.isArray(value)) {
                               displayValue = `[${value.length} items]`;
                             } else if (typeof value === 'object') {
-                              // Si es un objeto, intentar serializarlo de forma legible
+                             
                               try {
                                 const objStr = JSON.stringify(value);
                                 if (objStr.length > 50) {
@@ -878,8 +770,7 @@ export function Models() {
                           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                         }}
                         formatter={(value: number) => {
-                          // Los valores pueden venir como porcentajes (0-100) o como valores absolutos
-                          // Si el valor es > 1, asumimos que ya es un porcentaje o valor absoluto
+                          
                           return value > 1 ? value.toFixed(2) : `${(value * 100).toFixed(2)}%`;
                         }}
                       />
@@ -953,15 +844,7 @@ export function Models() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  // Debug: verificar qué datos tiene el modelo seleccionado
-                  console.log(`[Confusion Matrix] Modelo seleccionado: ${selectedModel.name}`, {
-                    hasConfusionMatrix: !!selectedModel.confusion_matrix,
-                    hasConfusionMatrixInfo: !!selectedModel.confusion_matrix_info,
-                    confusionMatrixType: selectedModel.confusion_matrix ? (Array.isArray(selectedModel.confusion_matrix) ? 'Array' : 'Object') : 'null',
-                    confusionMatrixInfoKeys: selectedModel.confusion_matrix_info ? Object.keys(selectedModel.confusion_matrix_info) : [],
-                  });
-                  
-             // Priorizar confusion_matrix_info (nuevo formato), fallback a confusion_matrix (legacy)
+          
                   const matrixInfo = selectedModel.confusion_matrix_info;
                   const legacyMatrix = selectedModel.confusion_matrix;
                   
@@ -978,46 +861,42 @@ export function Models() {
                     specificity?: number;
                   } = {};
                   
-                  // Normalizar labels: asegurar que siempre sea un objeto con predicted y actual
                   const normalizeLabels = (labelsInput: any): { predicted: string[]; actual: string[] } => {
                     if (!labelsInput) {
                       return { predicted: ['No Ictus', 'Ictus'], actual: ['No Ictus', 'Ictus'] };
                     }
-                    // Si es un array, convertir a objeto
+                   
                     if (Array.isArray(labelsInput)) {
                       return {
                         predicted: labelsInput.length >= 2 ? labelsInput : ['No Ictus', 'Ictus'],
                         actual: labelsInput.length >= 2 ? labelsInput : ['No Ictus', 'Ictus'],
                       };
                     }
-                    // Si es un objeto, validar estructura
+                   
                     if (typeof labelsInput === 'object' && labelsInput.predicted && labelsInput.actual) {
                       return {
                         predicted: Array.isArray(labelsInput.predicted) ? labelsInput.predicted : ['No Ictus', 'Ictus'],
                         actual: Array.isArray(labelsInput.actual) ? labelsInput.actual : ['No Ictus', 'Ictus'],
                       };
                     }
-                    // Fallback
+                  
                     return { predicted: ['No Ictus', 'Ictus'], actual: ['No Ictus', 'Ictus'] };
                   };
 
-                  // Usar nuevo formato si está disponible y tiene matrix/values válidos
-                  // El backend puede usar 'matrix' o 'values' (soporte para ambos)
+                 
                   const matrixData = matrixInfo?.matrix || matrixInfo?.values;
                   if (matrixInfo && matrixData && Array.isArray(matrixData) && matrixData.length > 0) {
                     values = matrixData;
                     labels = normalizeLabels(matrixInfo.labels);
-                    // Usar métricas de confusion_matrix_info si están disponibles
+                    
                     if (matrixInfo.accuracy !== undefined) {
                       metrics.accuracy = matrixInfo.accuracy;
                     }
                     if (matrixInfo.metrics) {
                       metrics = { ...metrics, ...matrixInfo.metrics };
                     }
-                    console.log('Using confusion_matrix_info:', { values, labels, metrics, matrixInfo });
                   } else if (matrixInfo && (matrixInfo.true_negative !== undefined || matrixInfo.true_positive !== undefined || matrixInfo.false_positive !== undefined || matrixInfo.false_negative !== undefined)) {
-                    // Caso especial: confusion_matrix_info tiene los valores directamente en sus propiedades
-                    // (formato usado por Random Forest y XGBoost)
+                    
                     const tn = Number(matrixInfo.true_negative) || 0;
                     const fp = Number(matrixInfo.false_positive) || 0;
                     const fn = Number(matrixInfo.false_negative) || 0;
@@ -1027,16 +906,15 @@ export function Models() {
                       [fn, tp],
                     ];
                     labels = normalizeLabels(matrixInfo.labels);
-                    // Usar métricas de confusion_matrix_info si están disponibles
+                    
                     if (matrixInfo.accuracy !== undefined) {
                       metrics.accuracy = matrixInfo.accuracy;
                     }
                     if (matrixInfo.metrics) {
                       metrics = { ...metrics, ...matrixInfo.metrics };
                     }
-                    console.log('Using confusion_matrix_info (direct properties):', { values, labels, metrics, matrixInfo });
                   } else if (legacyMatrix) {
-                    // Procesar formato legacy (fallback si confusion_matrix_info no tiene values)
+                  
                     if (Array.isArray(legacyMatrix)) {
                       values = legacyMatrix as number[][];
                     } else if (typeof legacyMatrix === 'object') {
@@ -1051,18 +929,17 @@ export function Models() {
                         [Number(cm.false_negative) || 0, Number(cm.true_positive) || 0],
                       ];
                     }
-                    // Si tenemos labels de matrixInfo pero usamos legacy values, normalizar los labels
+                   
                     if (matrixInfo && matrixInfo.labels) {
                       labels = normalizeLabels(matrixInfo.labels);
                     }
-                    // Si tenemos metrics de matrixInfo pero usamos legacy values, mantener las metrics
+                 
                     if (matrixInfo && matrixInfo.metrics) {
                       metrics = matrixInfo.metrics;
                     }
-                    console.log('Using legacy confusion_matrix (with optional labels/metrics from info):', { values, labels, metrics });
                   }
                   
-                  // Validar que values sea un array válido con datos
+               
                   if (!values || !Array.isArray(values) || values.length === 0 || !Array.isArray(values[0]) || values[0].length === 0) {
                     return (
                       <div className="py-12 text-center">
@@ -1080,7 +957,7 @@ export function Models() {
                     );
                   }
                   
-                  // Asegurar que tenemos al menos una matriz 2x2
+                 
                   if (values.length < 2 || values[0].length < 2 || values[1].length < 2) {
                     return (
                       <div className="py-8 text-center text-slate-500">
@@ -1095,7 +972,7 @@ export function Models() {
                   const tp = values[1][1] || 0;
                   const total = tn + fp + fn + tp;
                   
-                  // Calcular métricas si no vienen del backend
+                
                   const calculatedMetrics = {
                     accuracy: metrics.accuracy !== undefined 
                       ? metrics.accuracy 

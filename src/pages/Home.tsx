@@ -18,13 +18,13 @@ import type { ControlCenterResponse } from '../types/api';
 import { toast } from 'sonner';
 
 export default function Home() {
-  // Estado único para todos los datos del centro de control
+  
   const [controlCenter, setControlCenter] = useState<ControlCenterResponse | null>(null);
 
   useEffect(() => {
     const fetchControlCenter = async () => {
       try {
-        // Usamos el nuevo endpoint que trae toda la información
+       
         const data = await strokeApi.getControlCenter();
         setControlCenter(data);
       } catch (error: any) {
@@ -38,7 +38,7 @@ export default function Home() {
     };
 
     fetchControlCenter();
-    // Actualizar cada 10 segundos (como sugiere la documentación)
+   
     const interval = setInterval(fetchControlCenter, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -78,13 +78,13 @@ export default function Home() {
     },
   ];
 
-  // Función helper para obtener el color según el estado del componente
+
   const getStatusColor = (status: 'operational' | 'warning' | 'error', percentage: number) => {
     if (status === 'error') return 'text-red-600';
     if (status === 'warning') return 'text-yellow-600';
-    if (percentage >= 95) return 'text-red-600'; // 95-100% = rojo
-    if (percentage >= 80) return 'text-yellow-600'; // 80-94% = amarillo
-    return 'text-green-600'; // 0-79% = verde
+    if (percentage >= 95) return 'text-red-600'; 
+    if (percentage >= 80) return 'text-yellow-600'; 
+    return 'text-green-600';
   };
 
   const getStatusIcon = (status: 'operational' | 'warning' | 'error') => {

@@ -1,24 +1,21 @@
-// Tipos para las respuestas de la API
 export interface ApiError {
   message: string;
   status: number;
   errors?: Record<string, string[]>;
 }
 
-// Health Check
 export interface HealthResponse {
   status: string;
   message: string;
 }
 
-// System Status
+
 export interface StatusResponse {
   api_status: string;
   models_loaded: number;
   available_models: string[];
 }
 
-// Single Prediction Request
 export interface PredictionRequest {
   age: number;
   hypertension: 0 | 1;
@@ -33,7 +30,6 @@ export interface PredictionRequest {
   model_name?: string;
 }
 
-// Single Prediction Response
 export interface PredictionResponse {
   prediction: 0 | 1;
   probability: number;
@@ -41,33 +37,32 @@ export interface PredictionResponse {
   confidence: 'Low' | 'Medium' | 'High';
 }
 
-// Batch Prediction Request
+
 export interface BatchPredictionRequest {
   data: Omit<PredictionRequest, 'model_name'>[];
   model_name?: string;
 }
 
-// Batch Prediction Response
+
 export interface BatchPredictionResponse {
   predictions: PredictionResponse[];
   total: number;
   model_used: string;
 }
 
-// Extended Prediction Result for UI
-export interface PredictionResult extends PredictionResponse {
-  risk: number; // probability * 100 (0-100)
-  riskLevel: 'high' | 'medium' | 'low'; // derived from probability
-  recommendations: string[]; // generated in frontend
-  riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[]; // generated in frontend
-}
 
-// Models List Response
+export interface PredictionResult extends PredictionResponse {
+  risk: number;
+  riskLevel: 'high' | 'medium' | 'low'; 
+  recommendations: string[];
+  riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[]; 
+
+
 export interface ModelsListResponse {
   models: string[];
 }
 
-// Model Detail Response
+
 export interface ModelDetailResponse {
   name: string;
   version?: string;
@@ -97,7 +92,7 @@ export interface ModelDetailResponse {
   } | number[][];
   confusion_matrix_info?: {
     matrix?: number[][];
-    values?: number[][]; // Legacy support
+    values?: number[][]; 
     labels?: string[] | {
       predicted?: string[];
       actual?: string[];
@@ -131,7 +126,7 @@ export interface ModelDetailResponse {
   };
 }
 
-// Statistics Overview Response
+
 export interface StatsOverviewResponse {
   total_predictions: number;
   stroke_predictions: number;
@@ -139,7 +134,7 @@ export interface StatsOverviewResponse {
   average_probability: number;
 }
 
-// Risk Distribution Response
+
 export interface RiskDistributionResponse {
   low_risk: number;
   medium_risk: number;
@@ -151,7 +146,7 @@ export interface RiskDistributionResponse {
   };
 }
 
-// Models Compare Response
+
 export interface ModelsCompareResponse {
   models: string[];
   best_model: string;
@@ -164,7 +159,6 @@ export interface ModelsCompareResponse {
   }>;
 }
 
-// Control Center Response
 export interface ControlCenterComponent {
   name: string;
   status: 'operational' | 'warning' | 'error';
@@ -214,20 +208,20 @@ export interface ControlCenterResponse {
   configuration: ControlCenterConfiguration;
 }
 
-// Dataset Overview Response (Panel Estadístico)
+
 export interface DatasetOverviewResponse {
   total_samples: number;
   total_features: number;
   stroke_cases: number;
   no_stroke_cases: number;
   class_balance: {
-    stroke: number; // porcentaje
-    no_stroke: number; // porcentaje
+    stroke: number; 
+    no_stroke: number;
   };
   missing_values: number;
 }
 
-// Demographics Response
+
 export interface AgeDistribution {
   range: string;
   count: number;
@@ -262,7 +256,7 @@ export interface DemographicsResponse {
   };
 }
 
-// Clinical Stats Response
+
 export interface ClinicalConditionStats {
   present: { count: number; stroke_rate: number };
   absent: { count: number; stroke_rate: number };
@@ -305,7 +299,7 @@ export interface ClinicalStatsResponse {
   };
 }
 
-// Correlations Response
+
 export interface CorrelationFactor {
   feature: string;
   correlation: number;
@@ -317,7 +311,7 @@ export interface CorrelationsResponse {
   top_risk_factors: CorrelationFactor[];
 }
 
-// High Risk Profiles Response
+
 export interface HighRiskProfile {
   id: number;
   name: string;

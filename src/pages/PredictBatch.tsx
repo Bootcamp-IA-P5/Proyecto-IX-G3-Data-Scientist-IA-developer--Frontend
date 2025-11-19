@@ -65,7 +65,7 @@ export function PredictBatch() {
     }
   };
 
-  // Parsear CSV a array de objetos
+
   const parseCSV = async (file: File): Promise<Record<string, string>[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -84,7 +84,7 @@ export function PredictBatch() {
           for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(',').map((v) => v.trim());
             if (values.length !== headers.length) {
-              continue; // Skip invalid rows
+              continue; 
             }
             const row: Record<string, string> = {};
             headers.forEach((header, index) => {
@@ -103,7 +103,7 @@ export function PredictBatch() {
     });
   };
 
-  // Transformar datos CSV a PredictionRequest
+ 
   const transformCSVToRequest = (csvData: Record<string, string>[]): Omit<PredictionRequest, 'model_name'>[] => {
     return csvData.map((row) => {
       const age = parseFloat(row.age || row.Age || '0');
@@ -132,7 +132,7 @@ export function PredictBatch() {
     });
   };
 
-  // Transformar BatchPredictionResponse a BatchResult[]
+
   const transformApiResponseToResults = (apiResponse: BatchPredictionResponse, csvData: Record<string, string>[]): BatchResult[] => {
     return apiResponse.predictions.map((prediction, index) => {
       const risk = prediction.probability * 100;
@@ -164,10 +164,10 @@ export function PredictBatch() {
     setResults([]);
 
     try {
-      // Simular progreso mientras se parsea
+      
       setProgress(20);
 
-      // Parsear CSV
+   
       const csvData = await parseCSV(file);
       
       if (csvData.length === 0) {
@@ -184,18 +184,18 @@ export function PredictBatch() {
 
       setProgress(40);
 
-      // Transformar datos CSV a formato de API
+     
       const requestData = transformCSVToRequest(csvData);
       setProgress(60);
 
-      // Llamar a la API
+   
       const apiResponse = await strokeApi.predictBatch({
         data: requestData,
       });
 
       setProgress(90);
 
-      // Transformar respuesta a formato UI
+    
       const batchResults = transformApiResponseToResults(apiResponse, csvData);
       setResults(batchResults);
       setProgress(100);
@@ -228,7 +228,7 @@ export function PredictBatch() {
       return;
     }
 
-    // Crear CSV con los resultados
+   
     const headers = ['ID Paciente', 'Edad', 'Género', 'Riesgo (%)', 'Clasificación', 'Confianza'];
     const rows = results.map((r) => [
       r.id,

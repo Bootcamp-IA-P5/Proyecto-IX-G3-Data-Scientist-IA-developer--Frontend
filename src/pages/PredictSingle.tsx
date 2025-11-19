@@ -59,7 +59,7 @@ export function PredictSingle() {
       return false;
     }
 
-    // Validar que todos los campos estén completos
+  
     if (
       !formData.age ||
       !formData.gender ||
@@ -79,7 +79,6 @@ export function PredictSingle() {
     return true;
   };
 
-  // Transformar formData a PredictionRequest
   const transformFormDataToRequest = (): PredictionRequest => {
     return {
       age: parseFloat(formData.age),
@@ -95,7 +94,7 @@ export function PredictSingle() {
     };
   };
 
-  // Transformar PredictionResponse a PredictionResult (formato UI)
+  
   const transformApiResponseToResult = (apiResponse: PredictionResponse): PredictionResult => {
     const risk = apiResponse.probability * 100;
     const riskLevel: 'high' | 'medium' | 'low' = risk > 70 ? 'high' : risk > 30 ? 'medium' : 'low';
@@ -103,7 +102,7 @@ export function PredictSingle() {
     const glucose = parseFloat(formData.avg_glucose_level);
     const bmi = parseFloat(formData.bmi);
 
-    // Generar recomendaciones basadas en los datos
+
     const recommendations: string[] = [];
     if (formData.hypertension === '1') {
       recommendations.push('Control regular de presión arterial cada 2 semanas');
@@ -125,7 +124,7 @@ export function PredictSingle() {
       recommendations.push('Seguir un estilo de vida saludable');
     }
 
-    // Generar factores de riesgo
+   
     const riskFactors: { factor: string; impact: 'high' | 'medium' | 'low' }[] = [
       {
         factor: 'Edad',
@@ -169,13 +168,12 @@ export function PredictSingle() {
     setResult(null);
 
     try {
-      // Transformar datos del formulario al formato de la API
+     
       const requestData = transformFormDataToRequest();
 
-      // Llamar a la API real
+
       const apiResponse = await strokeApi.predict(requestData);
 
-      // Transformar respuesta de la API al formato de UI
       const result = transformApiResponseToResult(apiResponse);
 
       setResult(result);

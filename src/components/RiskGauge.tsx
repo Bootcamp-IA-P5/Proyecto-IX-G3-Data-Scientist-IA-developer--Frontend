@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 interface RiskGaugeProps {
-  value: number; // 0-100
+  value: number; 
 }
 
 export function RiskGauge({ value }: RiskGaugeProps) {
@@ -16,9 +16,9 @@ export function RiskGauge({ value }: RiskGaugeProps) {
   }, [value]);
 
   const getColor = (val: number) => {
-    if (val < 30) return { primary: '#10b981', secondary: '#d1fae5', accent: '#059669' }; // green
-    if (val < 70) return { primary: '#f59e0b', secondary: '#fef3c7', accent: '#d97706' }; // orange
-    return { primary: '#ef4444', secondary: '#fee2e2', accent: '#dc2626' }; // red
+    if (val < 30) return { primary: '#10b981', secondary: '#d1fae5', accent: '#059669' }; 
+    if (val < 70) return { primary: '#f59e0b', secondary: '#fef3c7', accent: '#d97706' }; 
+    return { primary: '#ef4444', secondary: '#fee2e2', accent: '#dc2626' }; 
   };
 
   const getRiskLevel = (val: number) => {
