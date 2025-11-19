@@ -25,6 +25,11 @@ const apiClient: AxiosInstance = axios.create({
   timeout: 10000,
 });
 
+// Log para debugging (solo en desarrollo)
+if (import.meta.env.DEV) {
+  console.log('🌐 API Client configured with baseURL:', API_URL);
+}
+
 // Interceptor para responses (manejo de errores global)
 apiClient.interceptors.response.use(
   (response) => {
