@@ -71,8 +71,41 @@ export function Models() {
 
         console.log(`Cargando detalles para ${modelNames.length} modelos:`, modelNames);
 
+        // Filtrar para mostrar solo los modelos deseados
+        // Random Forest, Logistic Regression, y XGBoost (pero NO el que tiene "smote")
+        const allowedModels = [
+          'random_forest',
+          'randomforest',
+          'logistic_regression',
+          'logisticregression',
+          'xgboost',
+        ];
+        
+        const filteredModelNames = modelNames.filter(modelName => {
+          const modelNameLower = modelName.toLowerCase();
+          
+          // Excluir modelos con "smote"
+          if (modelNameLower.includes('smote')) {
+            console.log(`Modelo excluido (contiene SMOTE): ${modelName}`);
+            return false;
+          }
+          
+          // Incluir solo modelos que coincidan con los permitidos
+          const isAllowed = allowedModels.some(allowed => 
+            modelNameLower.includes(allowed)
+          );
+          
+          if (!isAllowed) {
+            console.log(`Modelo excluido (no está en la lista permitida): ${modelName}`);
+          }
+          
+          return isAllowed;
+        });
+
+        console.log(`Modelos después del filtro: ${filteredModelNames.length} de ${modelNames.length}`);
+
         const modelsWithDetails = await Promise.all(
-          modelNames.map(async (modelName) => {
+          filteredModelNames.map(async (modelName) => {
             let detail: ModelDetailResponse | null = null;
             try {
               // Intentar cargar detalles, pero si falla (CORS u otro error), continuamos sin detalles
