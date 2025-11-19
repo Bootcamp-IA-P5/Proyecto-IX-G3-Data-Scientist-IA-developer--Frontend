@@ -5,6 +5,7 @@ import { PredictSingle } from './pages/PredictSingle';
 import { PredictBatch } from './pages/PredictBatch';
 import { Models } from './pages/Models';
 import { Statistics } from './pages/Statistics';
+import { InfoPage } from './pages/Info';
 import './App.css';
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
           <Route path="/predict-batch" element={<PredictBatch />} />
           <Route path="/models" element={<Models />} />
           <Route path="/statistics" element={<Statistics />} />
-          <Route path="/info" element={<div className="p-6"><h1 className="text-2xl font-bold">Base de Conocimiento</h1><p className="text-slate-600">Información (próximamente)</p></div>} />
+          <Route path="/info" element={<InfoPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
