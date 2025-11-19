@@ -72,7 +72,7 @@ export function Models() {
         console.log(`Cargando detalles para ${modelNames.length} modelos:`, modelNames);
 
         // Filtrar para mostrar solo los modelos deseados
-        // Random Forest, Logistic Regression, y XGBoost (pero NO el que tiene "smote")
+        // Random Forest, Logistic Regression, y XGBoost (incluyendo xgboost_model_no_smote.pkl)
         const allowedModels = [
           'random_forest',
           'randomforest',
@@ -87,9 +87,9 @@ export function Models() {
         const filteredModelNames = modelNames.filter(modelName => {
           const modelNameLower = modelName.toLowerCase();
           
-          // Excluir modelos con "smote"
-          if (modelNameLower.includes('smote')) {
-            console.log(`Modelo excluido (contiene SMOTE): ${modelName}`);
+          // Excluir modelos con "smote" PERO incluir los que tienen "no_smote"
+          if (modelNameLower.includes('smote') && !modelNameLower.includes('no_smote')) {
+            console.log(`Modelo excluido (contiene SMOTE pero no es no_smote): ${modelName}`);
             return false;
           }
           
