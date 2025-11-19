@@ -87,7 +87,13 @@ export function Models() {
         const filteredModelNames = modelNames.filter(modelName => {
           const modelNameLower = modelName.toLowerCase();
           
-          // Excluir modelos con "smote" PERO incluir los que tienen "no_smote"
+          // Excluir Random Forest con "no_smote" (es lo mismo que el otro)
+          if ((modelNameLower.includes('random') || modelNameLower.includes('forest')) && modelNameLower.includes('no_smote')) {
+            console.log(`Modelo excluido (Random Forest no_smote): ${modelName}`);
+            return false;
+          }
+          
+          // Excluir modelos con "smote" PERO incluir los que tienen "no_smote" (excepto Random Forest que ya excluimos arriba)
           if (modelNameLower.includes('smote') && !modelNameLower.includes('no_smote')) {
             console.log(`Modelo excluido (contiene SMOTE pero no es no_smote): ${modelName}`);
             return false;
