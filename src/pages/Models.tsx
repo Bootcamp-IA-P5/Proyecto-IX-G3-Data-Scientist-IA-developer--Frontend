@@ -187,7 +187,15 @@ export function Models() {
         // Establecer el modelo seleccionado por defecto (el activo o el primero)
         if (modelsWithDetails.length > 0) {
           const defaultModel = modelsWithDetails.find(m => m.isActive) || modelsWithDetails[0];
-          setSelectedModelName(defaultModel.name);
+          if (defaultModel && defaultModel.name) {
+            setSelectedModelName(defaultModel.name);
+            console.log('Modelo seleccionado por defecto:', defaultModel.name);
+          } else {
+            console.warn('No se pudo establecer el modelo por defecto:', defaultModel);
+          }
+        } else {
+          console.warn('No hay modelos para seleccionar');
+          setSelectedModelName(null);
         }
       } catch (error: any) {
         console.error('Error al cargar modelos:', error);
@@ -283,16 +291,24 @@ export function Models() {
     ? models.find((m) => m.name === selectedModelName) 
     : models.find((m) => m.isActive) || models[0];
   
-  // Debug: verificar qué modelo está seleccionado y qué datos tiene
-  console.log('=== DEBUG SELECTED MODEL ===');
-  console.log('Modelo seleccionado:', selectedModelName);
-  console.log('Selected Model objeto:', selectedModel?.name);
-  console.log('Selected Model feature_importance existe:', !!selectedModel?.feature_importance);
-  console.log('Selected Model feature_importance es array:', Array.isArray(selectedModel?.feature_importance));
-  if (selectedModel?.feature_importance) {
-    console.log('Selected Model feature_importance length:', selectedModel.feature_importance.length);
+  // Si no hay modelo seleccionado, no procesar datos
+  if (!selectedModel) {
+    console.warn('No hay modelo seleccionado disponible');
   }
-  console.log('========================');
+  
+  // Debug: verificar qué modelo está seleccionado y qué datos tiene (solo si existe)
+  if (selectedModel) {
+    console.log('=== DEBUG SELECTED MODEL ===');
+    console.log('Modelo seleccionado:', selectedModelName);
+    console.log('Selected Model objeto:', selectedModel.name);
+    console.log('Selected Model feature_importance existe:', !!selectedModel.feature_importance);
+    console.log('Selected Model feature_importance es array:', Array.isArray(selectedModel.feature_importance));
+    if (selectedModel.feature_importance) {
+      console.log('Selected Model feature_importance length:', selectedModel.feature_importance.length);
+    }
+    console.log('========================');
+  }
+  
   const radarData = selectedModel?.metrics
     ? [
         { metric: 'Accuracy', value: normalizeMetric(selectedModel.metrics.accuracy || 0) },
@@ -357,15 +373,18 @@ export function Models() {
     } else {
       console.warn('Feature importance is not a valid array:', selectedModel.feature_importance);
     }
-  } else {
-    console.warn('No feature_importance in selectedModel:', selectedModel);
+  } else if (selectedModel) {
+    // Solo mostrar warning si hay un modelo seleccionado pero sin feature_importance
+    console.warn('No feature_importance in selectedModel:', selectedModel.name);
   }
 
-  // Debug: log para verificar datos
-  console.log('Selected Model:', selectedModel?.name);
-  console.log('Feature Importance RAW:', selectedModel?.feature_importance);
-  console.log('Feature Importance Processed:', featureImportance);
-  console.log('Confusion Matrix:', selectedModel?.confusion_matrix);
+  // Debug: log para verificar datos (solo si hay modelo seleccionado)
+  if (selectedModel) {
+    console.log('Selected Model:', selectedModel.name);
+    console.log('Feature Importance RAW:', selectedModel.feature_importance);
+    console.log('Feature Importance Processed:', featureImportance);
+    console.log('Confusion Matrix:', selectedModel.confusion_matrix);
+  }
 
   if (loading) {
     return (
