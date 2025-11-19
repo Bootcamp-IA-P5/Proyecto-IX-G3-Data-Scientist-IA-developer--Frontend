@@ -150,6 +150,14 @@ export function Models() {
               } else {
                 console.log(`No hay confusion_matrix para ${modelName}`);
               }
+              // Debug: verificar confusion_matrix_info
+              if (detail?.confusion_matrix_info) {
+                console.log(`Confusion Matrix Info RAW para ${modelName}:`, detail.confusion_matrix_info);
+                console.log(`Tiene matrix:`, !!detail.confusion_matrix_info.matrix);
+                console.log(`Tiene values:`, !!detail.confusion_matrix_info.values);
+              } else {
+                console.log(`No hay confusion_matrix_info para ${modelName}`);
+              }
             } catch (error: any) {
               // Silenciar errores de CORS, Network Error, o errores 500/404/400
               // Si el backend está funcionando correctamente, estos errores no deberían aparecer
@@ -219,6 +227,8 @@ export function Models() {
               featureImportanceLength: modelData.feature_importance?.length || 0,
               hasConfusionMatrix: !!modelData.confusion_matrix,
               hasConfusionMatrixInfo: !!modelData.confusion_matrix_info,
+              confusionMatrixInfoMatrix: !!modelData.confusion_matrix_info?.matrix,
+              confusionMatrixInfoValues: !!modelData.confusion_matrix_info?.values,
               hasOptimalThreshold: modelData.optimal_threshold !== undefined,
             });
             
@@ -937,6 +947,14 @@ export function Models() {
               </CardHeader>
               <CardContent>
                 {(() => {
+                  // Debug: verificar qué datos tiene el modelo seleccionado
+                  console.log(`[Confusion Matrix] Modelo seleccionado: ${selectedModel.name}`, {
+                    hasConfusionMatrix: !!selectedModel.confusion_matrix,
+                    hasConfusionMatrixInfo: !!selectedModel.confusion_matrix_info,
+                    confusionMatrixType: selectedModel.confusion_matrix ? (Array.isArray(selectedModel.confusion_matrix) ? 'Array' : 'Object') : 'null',
+                    confusionMatrixInfoKeys: selectedModel.confusion_matrix_info ? Object.keys(selectedModel.confusion_matrix_info) : [],
+                  });
+                  
                   // Priorizar confusion_matrix_info (nuevo formato), fallback a confusion_matrix (legacy)
                   const matrixInfo = selectedModel.confusion_matrix_info;
                   const legacyMatrix = selectedModel.confusion_matrix;
