@@ -128,12 +128,37 @@ export function Statistics() {
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-6">
-          <TabsTrigger value="overview">Vista General</TabsTrigger>
-          <TabsTrigger value="demographics">Demografía</TabsTrigger>
-          <TabsTrigger value="clinical">Clínicos</TabsTrigger>
-          <TabsTrigger value="correlations">Correlaciones</TabsTrigger>
-          <TabsTrigger value="profiles">Alto Riesgo</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 mb-6 bg-slate-100 p-1 rounded-lg">
+          <TabsTrigger 
+            value="overview"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+          >
+            Vista General
+          </TabsTrigger>
+          <TabsTrigger 
+            value="demographics"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+          >
+            Demografía
+          </TabsTrigger>
+          <TabsTrigger 
+            value="clinical"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+          >
+            Clínicos
+          </TabsTrigger>
+          <TabsTrigger 
+            value="correlations"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+          >
+            Correlaciones
+          </TabsTrigger>
+          <TabsTrigger 
+            value="profiles"
+            className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm"
+          >
+            Alto Riesgo
+          </TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
