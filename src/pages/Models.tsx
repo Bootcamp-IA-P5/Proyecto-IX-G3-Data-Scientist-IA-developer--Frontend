@@ -219,6 +219,8 @@ export function Models() {
               confusion_matrix: detail?.confusion_matrix,
               confusion_matrix_info: detail?.confusion_matrix_info,
               optimal_threshold: detail?.optimal_threshold,
+              roc_curve: detail?.roc_curve,
+              precision_recall_curve: detail?.precision_recall_curve,
             };
             
             console.log(`Modelo procesado ${modelName}:`, {
@@ -230,6 +232,10 @@ export function Models() {
               confusionMatrixInfoMatrix: !!modelData.confusion_matrix_info?.matrix,
               confusionMatrixInfoValues: !!modelData.confusion_matrix_info?.values,
               hasOptimalThreshold: modelData.optimal_threshold !== undefined,
+              hasRocCurve: !!modelData.roc_curve,
+              hasPrecisionRecallCurve: !!modelData.precision_recall_curve,
+              confusionMatrixRaw: modelData.confusion_matrix,
+              confusionMatrixInfoRaw: modelData.confusion_matrix_info,
             });
             
             return modelData;
