@@ -13,6 +13,11 @@ import type {
   RiskDistributionResponse,
   ModelsCompareResponse,
   ControlCenterResponse,
+  DatasetOverviewResponse,
+  DemographicsResponse,
+  ClinicalStatsResponse,
+  CorrelationsResponse,
+  HighRiskProfilesResponse,
   ApiError,
 } from '../types/api';
 
@@ -126,6 +131,36 @@ export const strokeApi = {
   // Control Center
   getControlCenter: async (): Promise<ControlCenterResponse> => {
     const response = await apiClient.get<ControlCenterResponse>('/control-center');
+    return response.data;
+  },
+
+  // Dataset Overview (Panel Estadístico)
+  getDatasetOverview: async (): Promise<DatasetOverviewResponse> => {
+    const response = await apiClient.get<DatasetOverviewResponse>('/statistics/overview');
+    return response.data;
+  },
+
+  // Demographics
+  getDemographics: async (): Promise<DemographicsResponse> => {
+    const response = await apiClient.get<DemographicsResponse>('/statistics/demographics');
+    return response.data;
+  },
+
+  // Clinical Stats
+  getClinicalStats: async (): Promise<ClinicalStatsResponse> => {
+    const response = await apiClient.get<ClinicalStatsResponse>('/statistics/clinical');
+    return response.data;
+  },
+
+  // Correlations
+  getCorrelations: async (): Promise<CorrelationsResponse> => {
+    const response = await apiClient.get<CorrelationsResponse>('/statistics/correlations');
+    return response.data;
+  },
+
+  // High Risk Profiles
+  getHighRiskProfiles: async (): Promise<HighRiskProfilesResponse> => {
+    const response = await apiClient.get<HighRiskProfilesResponse>('/statistics/high-risk-profiles');
     return response.data;
   },
 };

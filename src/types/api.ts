@@ -214,3 +214,120 @@ export interface ControlCenterResponse {
   configuration: ControlCenterConfiguration;
 }
 
+// Dataset Overview Response (Panel Estadístico)
+export interface DatasetOverviewResponse {
+  total_samples: number;
+  total_features: number;
+  stroke_cases: number;
+  no_stroke_cases: number;
+  class_balance: {
+    stroke: number; // porcentaje
+    no_stroke: number; // porcentaje
+  };
+  missing_values: number;
+}
+
+// Demographics Response
+export interface AgeDistribution {
+  range: string;
+  count: number;
+  stroke_rate: number;
+}
+
+export interface GenderStats {
+  count: number;
+  stroke_rate: number;
+}
+
+export interface MaritalStatusStats {
+  count: number;
+  stroke_rate: number;
+}
+
+export interface DemographicsResponse {
+  age: {
+    mean: number;
+    median: number;
+    std: number;
+    distribution: AgeDistribution[];
+  };
+  gender: {
+    Male: GenderStats;
+    Female: GenderStats;
+    Other?: GenderStats;
+  };
+  marital_status: {
+    Yes: MaritalStatusStats;
+    No: MaritalStatusStats;
+  };
+}
+
+// Clinical Stats Response
+export interface ClinicalConditionStats {
+  present: { count: number; stroke_rate: number };
+  absent: { count: number; stroke_rate: number };
+}
+
+export interface GlucoseDistribution {
+  range: string;
+  count: number;
+  stroke_rate: number;
+}
+
+export interface BMICategory {
+  name: string;
+  count: number;
+  stroke_rate: number;
+}
+
+export interface SmokingStatusStats {
+  count: number;
+  stroke_rate: number;
+}
+
+export interface ClinicalStatsResponse {
+  hypertension: ClinicalConditionStats;
+  heart_disease: ClinicalConditionStats;
+  avg_glucose_level: {
+    mean: number;
+    median: number;
+    distribution: GlucoseDistribution[];
+  };
+  bmi: {
+    mean: number;
+    categories: BMICategory[];
+  };
+  smoking_status: {
+    'never smoked': SmokingStatusStats;
+    'formerly smoked': SmokingStatusStats;
+    smokes: SmokingStatusStats;
+    Unknown?: SmokingStatusStats;
+  };
+}
+
+// Correlations Response
+export interface CorrelationFactor {
+  feature: string;
+  correlation: number;
+  importance: 'High' | 'Medium' | 'Low';
+}
+
+export interface CorrelationsResponse {
+  correlation_matrix: Record<string, number>;
+  top_risk_factors: CorrelationFactor[];
+}
+
+// High Risk Profiles Response
+export interface HighRiskProfile {
+  id: number;
+  name: string;
+  criteria: string;
+  count: number;
+  stroke_rate: number;
+  avg_risk_score: number;
+}
+
+export interface HighRiskProfilesResponse {
+  profiles: HighRiskProfile[];
+}
+
