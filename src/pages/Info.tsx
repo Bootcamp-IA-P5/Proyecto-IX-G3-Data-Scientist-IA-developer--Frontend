@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { motion } from 'framer-motion';
-import { Info, Brain, AlertTriangle, Code, Database, Sparkles } from 'lucide-react';
+import { Info, Brain, AlertTriangle, Code, Sparkles } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 
 export function InfoPage() {

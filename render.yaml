@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: stroke-prediction-frontend
+    env: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+        value: https://your-backend-url.onrender.com
+    staticPublishPath: ./dist
+    healthCheckPath: /
